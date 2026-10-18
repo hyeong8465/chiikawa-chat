@@ -7,9 +7,9 @@ from fastapi.responses import FileResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 
 from app import messages
-from app.config import MAX_ASSISTANT_CHARS, MAX_INPUT_CHARS, MAX_MESSAGES, SUGGEST_MODEL
+from app.config import CHAT_MODEL, MAX_ASSISTANT_CHARS, MAX_INPUT_CHARS, MAX_MESSAGES, SUGGEST_MODEL
 from app.llm import CreditExhausted, complete, extract_json, score, stream_chat
-from app.prompt import build_messages, fill, load_character
+from app.prompt import build_messages, fill, load_character, speech_rules
 
 log = logging.getLogger(__name__)
 app = FastAPI()
@@ -115,6 +115,49 @@ async def suggest(request: Request):
         # 본 대화에 영향 없게 숨김. 크레딧 소진 포함 모든 실패
         log.warning("suggest 실패: %s", type(e).__name__)
         return {"suggestions": []}
+
+
+CONVERT_MAX_CHARS = 200
+CONVERT_OUT_MAX = 300
+
+
+def _parse_convert(text: str) -> dict:
+    out = extract_json(text)
+    if not isinstance(out, dict):
+        raise ValueError("dict 아님")
+    keys = ("intent", "twist") if "refused" not in out else ("refused",)
+    res = {}
+    for k in keys:
+        v = out.get(k)
+        if not isinstance(v, str) or not v.strip() or len(v) > CONVERT_OUT_MAX:
+            raise ValueError(f"{k} 불량")
+        res[k] = v.strip()
+    return res
+
+
+@app.post("/api/convert")
+async def convert(request: Request):
+    try:
+        body = await request.json()
+    except ValueError:
+        return _bad("invalid")
+    text = body.get("text") if isinstance(body, dict) else None
+    if not isinstance(text, str) or not text.strip():
+        return _bad("invalid")
+    text = text.strip()
+    if len(text) > CONVERT_MAX_CHARS:
+        return _bad("too_long", messages.TOO_LONG)
+    tpl = (Path(__file__).parent / "prompts" / "convert.md").read_text(encoding="utf-8")
+    rules = speech_rules(load_character())
+    prompt = fill(fill(tpl, speech_rules=rules), text=text)  # 규칙 먼저: 사용자 입력 속 자리표시 재치환 방지
+    try:
+        out, _ = complete([{"role": "user", "content": prompt}], CHAT_MODEL)
+        return _parse_convert(out)
+    except CreditExhausted:
+        return JSONResponse({"code": "credit", "message": messages.CREDIT_EXHAUSTED}, status_code=502)
+    except Exception as e:
+        log.warning("convert 실패: %s", type(e).__name__)
+        return JSONResponse({"code": "retry", "message": messages.ERROR_RETRY}, status_code=502)
 
 
 @app.post("/api/feedback")
