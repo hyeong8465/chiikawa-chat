@@ -115,3 +115,110 @@ def test_midstream_error_event(client, monkeypatch):
 def test_intro(client):
     expected = (CHARACTER_DIR / "intro.md").read_text(encoding="utf-8").strip()
     assert client.get("/api/intro").json() == {"text": expected}
+
+
+# --- 추천 답변·피드백 ---
+def suggest(client, msgs=None):
+    return client.post("/api/suggest", json={"messages": msgs or [U, A]})
+
+
+def fake_complete(text=None, exc=None):
+    def f(messages, model):
+        if exc:
+            raise exc
+        return text, None
+    return f
+
+
+def test_suggest_three(client, monkeypatch):
+    seen = {}
+    def f(m, model):
+        seen["m"], seen["model"] = m, model
+        return '["나도 그래","왜 그래?","ㅋㅋ 진짜?"]', None
+    monkeypatch.setattr(app.main, "complete", f)
+    r = suggest(client)
+    assert r.json() == {"suggestions": ["나도 그래", "왜 그래?", "ㅋㅋ 진짜?"]}
+    assert seen["model"] == app.main.SUGGEST_MODEL and "안녕" in seen["m"][0]["content"]
+
+
+def test_suggest_uses_only_last_6(client, monkeypatch):
+    seen = {}
+    def f(m, model):
+        seen["t"] = m[0]["content"]
+        return '["a","b","c"]', None
+    monkeypatch.setattr(app.main, "complete", f)
+    msgs = [{"role": "assistant" if i % 2 == 0 else "user", "content": f"m{i:02d}"} for i in range(10)]
+    suggest(client, msgs[:9] + [{"role": "assistant", "content": "m99"}])
+    assert "m99" in seen["t"] and "m03" not in seen["t"] and "m04" in seen["t"]
+
+
+def test_suggest_broken_json_returns_empty(client, monkeypatch):
+    monkeypatch.setattr(app.main, "complete", fake_complete("죄송해요"))
+    assert suggest(client).json() == {"suggestions": []}
+
+
+def test_suggest_credit_returns_empty(client, monkeypatch):
+    monkeypatch.setattr(app.main, "complete", fake_complete(exc=CreditExhausted()))
+    r = suggest(client)
+    assert r.status_code == 200 and r.json() == {"suggestions": []}
+
+
+def test_suggest_network_error_returns_empty(client, monkeypatch):
+    monkeypatch.setattr(app.main, "complete", fake_complete(exc=StreamError("x")))
+    assert suggest(client).json() == {"suggestions": []}
+
+
+def test_suggest_last_user_is_400(client):
+    assert suggest(client, [A, U]).status_code == 400
+
+
+def test_chat_last_assistant_still_400(client):
+    assert post(client, [U, A]).status_code == 400
+
+
+def test_suggest_drops_over_30_chars(client, monkeypatch):
+    long = "가" * 31
+    monkeypatch.setattr(app.main, "complete", fake_complete(f'["a","b","{long}"]'))
+    assert suggest(client).json() == {"suggestions": []}
+
+
+def test_suggest_strips_and_drops_empty(client, monkeypatch):
+    monkeypatch.setattr(app.main, "complete", fake_complete('[" a ","","b","c"]'))
+    assert suggest(client).json() == {"suggestions": ["a", "b", "c"]}
+
+
+def test_suggest_non_string_items_empty(client, monkeypatch):
+    monkeypatch.setattr(app.main, "complete", fake_complete('[1,2,3]'))
+    assert suggest(client).json() == {"suggestions": []}
+
+
+def fb(client, body):
+    return client.post("/api/feedback", json=body)
+
+
+def test_feedback_204(client, monkeypatch):
+    seen = []
+    monkeypatch.setattr(app.main, "score", lambda t, v: seen.append((t, v)))
+    assert fb(client, {"trace_id": "abc", "value": -1}).status_code == 204
+    assert seen == [("abc", -1)]
+
+
+@pytest.mark.parametrize("body", [
+    {"trace_id": "abc", "value": 0},
+    {"trace_id": "abc", "value": True},
+    {"trace_id": "abc", "value": "1"},
+    {"trace_id": "", "value": 1},
+    {"trace_id": "  ", "value": 1},
+    {"trace_id": 5, "value": 1},
+    {"trace_id": "x" * 65, "value": 1},
+    {"value": 1},
+    [],
+])
+def test_feedback_bad(client, monkeypatch, body):
+    monkeypatch.setattr(app.main, "score", lambda t, v: None)
+    assert fb(client, body).status_code == 400
+
+
+def test_feedback_bad_json(client):
+    r = client.post("/api/feedback", content=b"{", headers={"content-type": "application/json"})
+    assert r.status_code == 400

@@ -161,3 +161,13 @@ def extract_json(text: str) -> dict | list:
             except ValueError:
                 continue
     raise ValueError("JSON 없음")
+
+
+def score(trace_id: str, value: int) -> None:
+    # 사용자 피드백(1 / -1). 키 없음·전송 실패는 로그만
+    try:
+        from langfuse import get_client
+
+        get_client().create_score(name="feedback", value=value, trace_id=trace_id)
+    except Exception as e:
+        log.warning("feedback 기록 실패: %s", type(e).__name__)
