@@ -1,4 +1,4 @@
-from scripts.fetch_subs import select_episodes
+from scripts.fetch_subs import build_index, select_episodes
 from scripts.vtt import parse
 
 SAMPLE = """WEBVTT
@@ -29,6 +29,18 @@ def test_parse_strips_timestamp_tags():
 def test_parse_keeps_nonadjacent_repeats():
     text = "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n응\n아니\n응\n"
     assert parse(text) == ["응", "아니", "응"]
+
+
+def test_parse_keeps_digit_only_line():
+    text = "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n3\n"
+    assert parse(text) == ["3"]
+
+
+def test_build_index_lists_all_existing_txt(tmp_path):
+    (tmp_path / "001.txt").write_text("a")
+    (tmp_path / "003.txt").write_text("b")
+    eps = [(3, "c", "t3"), (1, "a", "t1"), (2, "b", "t2")]
+    assert [e["episode"] for e in build_index(eps, tmp_path)] == [1, 3]
 
 
 def test_select_episodes():

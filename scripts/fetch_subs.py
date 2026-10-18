@@ -43,7 +43,18 @@ def list_entries() -> list[tuple[str, str]]:
     return [tuple(l.split("\t", 1)) for l in r.stdout.splitlines() if "\t" in l]
 
 
+def build_index(episodes: list[tuple[int, str, str]], raw_dir: Path) -> list[dict]:
+    """.txt가 있는 화만 화수순으로."""
+    return [
+        {"episode": ep, "title": title, "url": f"https://www.youtube.com/watch?v={vid}"}
+        for ep, vid, title in sorted(episodes)
+        if (raw_dir / f"{ep:03d}.txt").exists()
+    ]
+
+
 def download_vtt(ep: int, vid: str) -> Path | None:
+    for old in (RAW / f"{ep:03d}.ko.vtt", RAW / f"{ep:03d}.vtt"):
+        old.unlink(missing_ok=True)  # 이전 실패분 제거
     r = _ytdlp(
         "--skip-download", "--write-auto-subs", "--sub-langs", "ko", "--sub-format", "vtt",
         "--sleep-requests", "1", "--sleep-subtitles", "2",
@@ -67,10 +78,9 @@ def main() -> None:
     RAW.mkdir(parents=True, exist_ok=True)
 
     episodes = select_episodes(list_entries())
-    if only is not None:
-        episodes = [e for e in episodes if e[0] == only]
+    targets = episodes if only is None else [e for e in episodes if e[0] == only]
     got = skipped = failed = 0
-    for ep, vid, title in episodes:
+    for ep, vid, title in targets:
         txt = RAW / f"{ep:03d}.txt"
         if txt.exists():
             skipped += 1
@@ -85,11 +95,7 @@ def main() -> None:
         got += 1
         print(f"{ep}화 완료 ({len(lines)}줄)")
 
-    index = [
-        {"episode": ep, "title": title, "url": f"https://www.youtube.com/watch?v={vid}"}
-        for ep, vid, title in episodes
-        if (RAW / f"{ep:03d}.txt").exists()
-    ]
+    index = build_index(episodes, RAW)
     (RAW / "index.json").write_text(json.dumps(index, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"받음 {got} / 건너뜀 {skipped} / 실패 {failed}")
 

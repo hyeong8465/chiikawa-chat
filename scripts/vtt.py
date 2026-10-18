@@ -9,7 +9,7 @@ def parse(text: str) -> list[str]:
     out: list[str] = []
     for raw in text.splitlines():
         line = _TAG.sub("", raw).strip()
-        if not line or "-->" in line or line.isdigit() or line.startswith(_META):
+        if not line or "-->" in line or line.startswith(_META):
             continue
         if out and out[-1] == line:
             continue
