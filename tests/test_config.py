@@ -5,14 +5,6 @@ import pytest
 import app.config as c
 
 
-@pytest.fixture
-def env():
-    # 환경 변수를 되돌린 뒤 config를 다시 리로드해 오염 방지
-    with pytest.MonkeyPatch.context() as mp:
-        yield mp
-    importlib.reload(c)
-
-
 def test_prompt_version_falls_back(env):
     env.delenv("VERCEL_GIT_COMMIT_SHA", raising=False)
     importlib.reload(c)
