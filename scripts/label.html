@@ -191,7 +191,7 @@ function startEdit(){
 }
 function endEdit(){ editing=false; $("editbox").hidden=true; $("edit").blur(); }
 function commitEdit(){
-  const it = items[idx], v = $("edit").value.trim();
+  const it = items[idx], v = $("edit").value.replace(/\r?\n/g," ").trim();
   if(!labels.edits) labels.edits = {};
   if(!v || v===it.text) delete labels.edits[it.id]; else labels.edits[it.id] = v;
   const cur = textOf(it), lab = labels.items[it.id];
@@ -203,6 +203,7 @@ function commitEdit(){
   endEdit(); render(); save();
 }
 $("edit").addEventListener("keydown", e=>{
+  if(e.isComposing || e.keyCode===229) return;
   if(e.key==="Enter"){ e.preventDefault(); commitEdit(); }
   else if(e.key==="Escape"){ endEdit(); }
 });
@@ -214,6 +215,7 @@ async function addPerson(){
 }
 $("addok").onclick = addPerson;
 $("newp").addEventListener("keydown", e=>{
+  if(e.isComposing || e.keyCode===229) return;
   if(e.key==="Enter"){ e.preventDefault(); addPerson(); }
   if(e.key==="Escape"){ $("newp").value=""; $("addbox").hidden=true; $("newp").blur(); }
 });
