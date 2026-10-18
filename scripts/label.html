@@ -25,11 +25,15 @@ button.hw{border-color:#e08a00}
 .gap.on{background:#e33;width:6px;margin:0 3px}
 #addbox input{height:40px;font-size:16px;padding:0 8px}
 #status{font-size:13px}
+.cur-label{margin-top:10px;padding:8px;background:#e8f1ff;border-radius:6px;font-size:18px;color:#124}
 .err{color:#c00}
 </style>
 </head>
 <body>
 <div id="top"><span id="prog"></span><span id="status"></span></div>
+<div id="nav" style="display:flex;gap:8px;margin:8px 0">
+  <button id="prev">◀ 이전</button><button id="next">다음 ▶</button><button id="first"><kbd>f</kbd>처음 안 한 곳으로</button>
+</div>
 <div id="head"></div>
 <div id="before"></div>
 <div id="cur"></div>
@@ -40,7 +44,7 @@ button.hw{border-color:#e08a00}
   <input id="newp" placeholder="인물 이름" autocomplete="off">
   <button id="addok">추가</button>
 </div>
-<p style="color:#888;font-size:13px">숫자: 인물 / 0: 모름 / x: 잡음 / s: 분리 / z, Backspace: 뒤로</p>
+<p style="color:#888;font-size:13px">1~9 인물 · 0 모름 · x 잡음 · s 분리 · ←/→ 이동 · f 안 한 곳</p>
 <script>
 const $ = id => document.getElementById(id);
 const UNKNOWN = "모름", NOISE = "잡음/대사 아님";
@@ -93,7 +97,7 @@ function render(){
     $("cur").innerHTML = segs.map((t,i)=>`<span class="seg ${i===segPos?"active":i<segPos?"done":""}">${esc(t)}${i<segPos?` [${esc(segSpk[i])}]`:""}</span>`).join(" | ");
   } else {
     const prev = labels.items[it.id];
-    $("cur").innerHTML = esc(it.text) + (prev ? `<div class="ctx">기존: ${prev.segments.map(s=>esc(s.speaker)).join(", ")}</div>` : "");
+    $("cur").innerHTML = esc(it.text) + (prev ? `<div class="cur-label">현재: ${prev.segments.length===1 ? esc(prev.segments[0].speaker) : prev.segments.map(s=>esc(s.text)+" → "+esc(s.speaker)).join(" | ")}</div>` : "");
   }
   renderSplit(); renderButtons();
 }
@@ -151,9 +155,10 @@ function pick(spk){
 }
 
 async function finish(segments){
+  const wasLabeled = !!labels.items[items[idx].id];
   labels.items[items[idx].id] = {segments, at:new Date().toISOString()};
   mode = "normal";
-  idx = firstUnlabeled(idx+1);
+  idx = wasLabeled ? Math.min(idx+1, items.length) : firstUnlabeled(idx+1);
   render();
   await save();
 }
@@ -169,6 +174,9 @@ function back(){
   if(mode==="segs" && segPos>0){ segPos--; segSpk.length=segPos; return render(); }
   mode = "normal"; if(idx>0) idx--; render();
 }
+function next(){ if(mode==="normal" && idx<items.length-1){ idx++; render(); } }
+function goFirst(){ if(mode==="split") return; mode="normal"; idx=firstUnlabeled(); render(); }
+$("prev").onclick = back; $("next").onclick = next; $("first").onclick = goFirst;
 function showAdd(){ $("addbox").hidden=false; $("newp").focus(); }
 async function addPerson(){
   const v = $("newp").value.trim();
@@ -194,7 +202,9 @@ document.addEventListener("keydown", e=>{
   else if(k==="0") pick(UNKNOWN);
   else if(k==="x"||k==="X") pick(NOISE);
   else if(k==="s"||k==="S") startSplit();
-  else if(k==="z"||k==="Z"||k==="Backspace"){ e.preventDefault(); back(); }
+  else if(k==="ArrowRight"){ e.preventDefault(); next(); }
+  else if(k==="f"||k==="F") goFirst();
+  else if(k==="z"||k==="Z"||k==="Backspace"||k==="ArrowLeft"){ e.preventDefault(); back(); }
 });
 
 (async()=>{
