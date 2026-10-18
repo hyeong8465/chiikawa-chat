@@ -176,7 +176,8 @@ async function send(text) {
     const res = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: payload() }) });
     if (!res.ok) {
       let message = res.status === 429 ? MSG_RATE : MSG_RETRY;
-      try { message = (await res.json()).message || message; } catch { /* 본문 없음 */ }
+      // 429는 방화벽 응답이라 본문이 우리 형식이 아님 → 고정 문구 유지
+      if (res.status !== 429) { try { message = (await res.json()).message || message; } catch { /* 본문 없음 */ } }
       fail(message, text);
       failed = true;
     } else {
