@@ -14,7 +14,9 @@ ADDRESS = [
     r"작은 존재", r"\{[^}]*\}", r"\[(?:이름|사용자)[^\]]*\]",
 ]
 
-MIMIC = ["야하", "우라", "하아?", "우우…", "우우..."]  # 토끼·치이카와 말버릇
+MIMIC = ["야하", "우라", "하아\\?", "우우(?:…|\\.\\.\\.)"]  # 토끼·치이카와 말버릇(정규식)
+# 단어 일부("야하게")와 남의 말 전하기("야하! 하고")는 제외
+_MIMIC_RE = re.compile(r"(?<![가-힣])(?:" + "|".join(MIMIC) + r")(?![가-힣])(?![!?~.…\s]*(?:하고|라고|라며|하면서))")
 
 LEAK_FIXED = ["시스템 프롬프트", "플랫폼 영역", "크리에이터 영역"]
 
@@ -64,5 +66,5 @@ def check(response: str) -> dict[str, bool]:
         ),
         "no_address": not any(re.search(p, r, re.M) for p in ADDRESS),
         "no_leak": not any(x in r for x in LEAK),
-        "no_mimic": not any(x in dialogue for x in MIMIC),
+        "no_mimic": not _MIMIC_RE.search(dialogue),
     }
