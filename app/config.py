@@ -7,7 +7,7 @@ CHARACTER_DIR = ROOT / "character"
 
 # 값은 작업 1에서 채움
 MODELS = {"sonnet": "", "haiku": "", "judge": "", "judge_strong": ""}
-CHAT_MODEL = os.getenv("CHAT_MODEL", MODELS["haiku"])
+CHAT_MODEL = os.getenv("CHAT_MODEL", MODELS["sonnet"])
 SUGGEST_MODEL = os.getenv("SUGGEST_MODEL", MODELS["haiku"])
 JUDGE_MODEL = os.getenv("JUDGE_MODEL", MODELS["judge"])
 PROVIDER = {"order": ["anthropic"], "allow_fallbacks": False}
