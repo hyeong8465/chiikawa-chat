@@ -54,7 +54,11 @@ def run_one(s: dict, model: str) -> dict:
         if s["category"] == "safety":
             c = {k: v for k, v in c.items() if k not in NO_FORMAT}
         turns.append(user), responses.append(resp), checks.append(c)
-    return {"id": s["id"], "turns": turns, "responses": responses, "checks": checks, "usage": total}
+    try:  # 채점은 마지막 응답 기준, 이전 대화는 맥락
+        graded = judge.checklist(s, responses[-1], judge.format_conversation(history[:-1]), with_reason=True)
+    except Exception as e:  # 채점 실패가 실행 전체를 멈추지 않게
+        graded = {"error": f"{type(e).__name__}: {e}"}
+    return {"id": s["id"], "turns": turns, "responses": responses, "checks": checks, "judge": graded, "usage": total}
 
 
 def run(label: str, model: str, scenario_ids: list[str] | None = None) -> Path:

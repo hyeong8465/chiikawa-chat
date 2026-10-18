@@ -100,6 +100,7 @@ def test_run_multiturn_and_safety(monkeypatch, tmp_path):
     assert d["usage"]["cost"] == 0.5 and d["model"] == "anthropic/claude-haiku-5.5"
     assert "format" in d["checks"][0] and "format" not in s["checks"][0] and "length" not in s["checks"][0]
     assert "no_counselor" in s["checks"][0]
+    assert "judge" in d  # 채점 실패(가짜 complete 없음)여도 실행은 계속, 기록은 남음
 
 
 def test_run_only_and_long(monkeypatch, tmp_path, prompts):

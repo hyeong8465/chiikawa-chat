@@ -45,13 +45,16 @@ def _ask(text: str) -> dict:
     return res
 
 
-def checklist(scenario: dict, response: str, conversation: str = "") -> dict[str, bool]:
+def checklist(scenario: dict, response: str, conversation: str = "", with_reason: bool = False) -> dict:
     items = CATEGORY_ITEMS[scenario["category"]]
     res = _ask(prompt(
         "judge_checklist", category=scenario["category"], note=scenario.get("note", ""),
         conversation=conversation, response=response, items="\n".join(items),
     ))
-    return {i: bool(res[i]) for i in items}
+    out = {i: bool(res[i]) for i in items}
+    if with_reason:
+        out["reason"] = str(res.get("reason", ""))
+    return out
 
 
 def _winner(scenario: dict, a: str, b: str, conversation: str) -> str:
