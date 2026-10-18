@@ -6,3 +6,4 @@ __pycache__/
 prototypes/
 .claude/settings.local.json
 .superpowers/
+.vercel
