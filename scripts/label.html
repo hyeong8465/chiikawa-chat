@@ -50,13 +50,24 @@ let cuts = new Set();         // split 모드의 분리 위치 (문자 사이 �
 let segs = [], segPos = 0, segSpk = [];
 
 function esc(s){return s.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
-function setStatus(ok){const s=$("status");s.textContent=ok?"저장됨":"저장 실패";s.className=ok?"":"err";}
 
+let saving=false, dirty=false;
+function setStatus(t,err){const s=$("status");s.textContent=t;s.className=err?"err":"";}
 async function save(){
-  try{
-    const r = await fetch("/api/labels",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(labels)});
-    setStatus(r.ok && (await r.json()).ok);
-  }catch(e){setStatus(false);}
+  dirty = true;
+  if(saving) return;           // 진행 중이면 끝난 뒤 최신 상태로 한 번 더 저장
+  saving = true;
+  while(dirty){
+    dirty = false; setStatus("저장 중");
+    let ok = false;
+    try{
+      const r = await fetch("/api/labels",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(labels)});
+      ok = r.ok && (await r.json()).ok;
+    }catch(e){}
+    if(!ok){ setStatus("저장 실패",true); dirty=false; break; }
+    if(!dirty) setStatus("저장됨");
+  }
+  saving = false;
 }
 
 function firstUnlabeled(from=0){
@@ -105,7 +116,7 @@ function renderSplit(){
 
 function btn(label, key, fn, cls=""){
   const b = document.createElement("button");
-  b.innerHTML = key ? `<kbd>${key}</kbd>${esc(label)}` : esc(label);
+  b.innerHTML = key !== "" ? `<kbd>${key}</kbd>${esc(label)}` : esc(label);
   if(cls) b.className = cls;
   b.onclick = fn; $("btns").appendChild(b);
 }
@@ -118,8 +129,9 @@ function renderButtons(){
     btn("취소","Esc",()=>{mode="normal";render();});
     return;
   }
+  if(mode==="segs") btn("뒤로","z",back);
   labels.persons.forEach((p,i)=>{ if(i<9) btn(p,i+1,()=>pick(p),p==="하치와레"?"hw":""); else btn(p,"",()=>pick(p)); });
-  btn("모름",0,()=>pick(UNKNOWN));
+  btn("모름","0",()=>pick(UNKNOWN));
   btn("잡음/대사 아님","x",()=>pick(NOISE));
   if(mode==="normal"){
     btn("+ 인물 추가","",showAdd);
@@ -171,6 +183,7 @@ $("newp").addEventListener("keydown", e=>{
 
 document.addEventListener("keydown", e=>{
   if(e.target.tagName==="INPUT" || e.metaKey || e.ctrlKey || e.altKey) return;
+  if(e.repeat) return;
   const k = e.key;
   if(mode==="split"){
     if(k==="Enter"){ e.preventDefault(); confirmSplit(); }
@@ -185,7 +198,13 @@ document.addEventListener("keydown", e=>{
 });
 
 (async()=>{
-  [items, labels] = await Promise.all([fetch("/api/items").then(r=>r.json()), fetch("/api/labels").then(r=>r.json())]);
+  try{
+    const get = u => fetch(u).then(r=>{ if(!r.ok) throw new Error(r.status); return r.json(); });
+    [items, labels] = await Promise.all([get("/api/items"), get("/api/labels")]);
+  }catch(e){
+    $("head").textContent = "데이터를 불러오지 못했어요. 서버가 켜져 있는지 확인하고 새로고침하세요.";
+    $("head").className = "err"; return;
+  }
   idx = firstUnlabeled(); render();
 })();
 </script>

@@ -1,6 +1,7 @@
 """화자 라벨링 로컬 서버. 실행: uv run python scripts/label_server.py"""
 import json
 import os
+import shutil
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -35,6 +36,8 @@ def build_items(clean_dir: Path, titles: dict[int, str]) -> list[dict]:
 
 def save_labels(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        shutil.copy2(path, path.with_name(path.name + ".bak"))
     tmp = path.with_name(path.name + ".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=1), encoding="utf-8")
     os.replace(tmp, path)
@@ -71,15 +74,27 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path != "/api/labels":
             return self._json({"error": "not found"}, 404)
-        n = int(self.headers.get("Content-Length") or 0)
+        if not self.headers.get("Content-Type", "").startswith("application/json"):
+            return self._json({"error": "content-type"}, 415)
+        try:
+            n = int(self.headers.get("Content-Length") or "")
+            if n < 0:
+                raise ValueError
+        except ValueError:
+            return self._json({"error": "bad length"}, 400)
         if n > MAX_BODY:
             return self._json({"error": "too large"}, 413)
         try:
             data = json.loads(self.rfile.read(n))
-            assert isinstance(data, dict)
-        except (ValueError, AssertionError):
+        except ValueError:
             return self._json({"error": "bad json"}, 400)
-        save_labels(LABELS, data)
+        if not (isinstance(data, dict) and isinstance(data.get("persons"), list)
+                and isinstance(data.get("items"), dict)):
+            return self._json({"error": "bad shape"}, 400)
+        try:
+            save_labels(LABELS, data)
+        except Exception as e:
+            return self._json({"error": f"save failed: {e}"}, 500)
         self._json({"ok": True})
 
 

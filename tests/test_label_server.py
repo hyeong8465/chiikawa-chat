@@ -44,3 +44,78 @@ def test_save_load_roundtrip(tmp_path):
 
 def test_load_default(tmp_path):
     assert load_labels(tmp_path / "x.json") == {"persons": ["치이카와", "우사기", "하치와레"], "items": {}}
+
+
+# --- HTTP / 백업 ---
+import threading
+import urllib.error
+import urllib.request
+from http.server import HTTPServer
+
+import pytest
+
+from scripts import label_server
+
+
+@pytest.fixture
+def server(tmp_path, monkeypatch):
+    monkeypatch.setattr(label_server, "LABELS", tmp_path / "label" / "labels.json")
+    srv = HTTPServer(("127.0.0.1", 0), label_server.Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{srv.server_port}", tmp_path / "label" / "labels.json"
+    srv.shutdown()
+    srv.server_close()
+
+
+def _post(base, body, ctype="application/json"):
+    headers = {"Content-Type": ctype} if ctype else {}
+    req = urllib.request.Request(base + "/api/labels", data=body, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req) as r:
+            return r.status
+    except urllib.error.HTTPError as e:
+        return e.code
+
+
+GOOD = b'{"persons": ["a"], "items": {}}'
+
+
+def test_post_ok(server):
+    base, path = server
+    assert _post(base, GOOD) == 200
+    assert json.loads(path.read_text(encoding="utf-8"))["persons"] == ["a"]
+
+
+def test_post_rejects_content_type(server):
+    base, path = server
+    assert _post(base, GOOD, "text/plain") == 415
+    assert _post(base, GOOD, None) == 415
+    assert not path.exists()
+
+
+@pytest.mark.parametrize("body", [b"[]", b"not json", b'{"persons": "x", "items": {}}',
+                                  b'{"persons": [], "items": []}', b'{"persons": []}'])
+def test_post_rejects_bad_body(server, body):
+    base, path = server
+    assert _post(base, body) == 400
+    assert not path.exists()
+
+
+def test_post_bad_content_length(server):
+    import socket
+    base, _ = server
+    port = int(base.rsplit(":", 1)[1])
+    for cl in ("-5", "abc"):
+        s = socket.create_connection(("127.0.0.1", port))
+        s.sendall(f"POST /api/labels HTTP/1.0\r\nContent-Type: application/json\r\nContent-Length: {cl}\r\n\r\n".encode())
+        assert s.recv(100).startswith(b"HTTP/1.0 400")
+        s.close()
+
+
+def test_save_keeps_bak(tmp_path):
+    p = tmp_path / "labels.json"
+    save_labels(p, {"persons": [], "items": {"a": 1}})
+    assert not (tmp_path / "labels.json.bak").exists()
+    save_labels(p, {"persons": [], "items": {"a": 2}})
+    assert json.loads((tmp_path / "labels.json.bak").read_text(encoding="utf-8"))["items"] == {"a": 1}
+    assert json.loads(p.read_text(encoding="utf-8"))["items"] == {"a": 2}
