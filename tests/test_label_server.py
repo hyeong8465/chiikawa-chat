@@ -34,7 +34,7 @@ def test_build_items(tmp_path):
 
 def test_save_load_roundtrip(tmp_path):
     p = tmp_path / "sub" / "labels.json"
-    data = {"persons": ["하치와레"], "items": {"002-0": {"segments": [{"text": "안녕", "speaker": "하치와레"}]}}}
+    data = {"persons": ["하치와레"], "items": {"002-0": {"segments": [{"text": "안녕", "speaker": "하치와레"}]}}, "edits": {}}
     save_labels(p, data)
     assert json.loads(p.read_text(encoding="utf-8")) == data
     assert "안녕" in p.read_text(encoding="utf-8")
@@ -43,7 +43,7 @@ def test_save_load_roundtrip(tmp_path):
 
 
 def test_load_default(tmp_path):
-    assert load_labels(tmp_path / "x.json") == {"persons": ["치이카와", "우사기", "하치와레"], "items": {}}
+    assert load_labels(tmp_path / "x.json") == {"persons": ["치이카와", "우사기", "하치와레"], "items": {}, "edits": {}}
 
 
 # --- HTTP / 백업 ---
@@ -119,3 +119,23 @@ def test_save_keeps_bak(tmp_path):
     save_labels(p, {"persons": [], "items": {"a": 2}})
     assert json.loads((tmp_path / "labels.json.bak").read_text(encoding="utf-8"))["items"] == {"a": 1}
     assert json.loads(p.read_text(encoding="utf-8"))["items"] == {"a": 2}
+
+
+def test_post_edits(server):
+    base, path = server
+    body = '{"persons": [], "items": {}, "edits": {"002-0": "고친 대사"}}'.encode()
+    assert _post(base, body) == 200
+    assert json.loads(path.read_text(encoding="utf-8"))["edits"] == {"002-0": "고친 대사"}
+
+
+@pytest.mark.parametrize("edits", ['[]', '{"a": 1}', '"x"'])
+def test_post_bad_edits(server, edits):
+    base, path = server
+    assert _post(base, f'{{"persons": [], "items": {{}}, "edits": {edits}}}'.encode()) == 400
+    assert not path.exists()
+
+
+def test_load_old_file_without_edits(tmp_path):
+    p = tmp_path / "l.json"
+    p.write_text('{"persons": ["a"], "items": {}}', encoding="utf-8")
+    assert load_labels(p)["edits"] == {}

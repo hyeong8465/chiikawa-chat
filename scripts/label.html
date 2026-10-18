@@ -38,19 +38,22 @@ button.hw{border-color:#e08a00}
 <div id="before"></div>
 <div id="cur"></div>
 <div id="after"></div>
+<div id="editbox" hidden><textarea id="edit" rows="2" style="width:100%;font-size:24px;box-sizing:border-box"></textarea>
+  <div class="ctx">Enter 저장 · Esc 취소 · 비우면 원문으로 되돌림</div></div>
 <div id="splitbox" hidden></div>
 <div id="btns"></div>
 <div id="addbox" hidden>
   <input id="newp" placeholder="인물 이름" autocomplete="off">
   <button id="addok">추가</button>
 </div>
-<p style="color:#888;font-size:13px">1~9 인물 · 0 모름 · x 잡음 · s 분리 · ←/→ 이동 · f 안 한 곳</p>
+<p style="color:#888;font-size:13px">1~9 인물 · 0 모름 · x 잡음 · s 분리 · e 수정 · ←/→ 이동 · f 안 한 곳</p>
 <script>
 const $ = id => document.getElementById(id);
 const UNKNOWN = "모름", NOISE = "잡음/대사 아님";
 let items = [], labels = {persons: [], items: {}}, idx = 0;
 let mode = "normal";          // normal | split | segs
 let cuts = new Set();         // split 모드의 분리 위치 (문자 사이 인덱스)
+let editing = false, note = "";
 let segs = [], segPos = 0, segSpk = [];
 
 function esc(s){return s.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
@@ -74,12 +77,14 @@ async function save(){
   saving = false;
 }
 
+function textOf(it){ return (labels.edits && labels.edits[it.id]) || it.text; }
 function firstUnlabeled(from=0){
   for(let i=from;i<items.length;i++) if(!labels.items[items[i].id]) return i;
   return items.length;
 }
 
 function render(){
+  if(editing) endEdit();
   const done = items.filter(i=>labels.items[i.id]).length;
   let hw = 0;
   for(const v of Object.values(labels.items)) for(const s of v.segments) if(s.speaker==="하치와레") hw++;
@@ -97,7 +102,8 @@ function render(){
     $("cur").innerHTML = segs.map((t,i)=>`<span class="seg ${i===segPos?"active":i<segPos?"done":""}">${esc(t)}${i<segPos?` [${esc(segSpk[i])}]`:""}</span>`).join(" | ");
   } else {
     const prev = labels.items[it.id];
-    $("cur").innerHTML = esc(it.text) + (prev ? `<div class="cur-label">현재: ${prev.segments.length===1 ? esc(prev.segments[0].speaker) : prev.segments.map(s=>esc(s.text)+" → "+esc(s.speaker)).join(" | ")}</div>` : "");
+    const ed = labels.edits && labels.edits[it.id];
+    $("cur").innerHTML = esc(textOf(it)) + (ed ? `<div class="ctx">수정됨 (원문: ${esc(it.text)})</div>` : "") + (note ? `<div class="err">${esc(note)}</div>` : "") + (prev ? `<div class="cur-label">현재: ${prev.segments.length===1 ? esc(prev.segments[0].speaker) : prev.segments.map(s=>esc(s.text)+" → "+esc(s.speaker)).join(" | ")}</div>` : "");
   }
   renderSplit(); renderButtons();
 }
@@ -106,7 +112,7 @@ function renderSplit(){
   const box = $("splitbox");
   box.hidden = mode!=="split";
   if(mode!=="split") return;
-  const t = [...items[idx].text];
+  const t = [...textOf(items[idx])];
   let h = "";
   t.forEach((c,i)=>{
     h += `<span class="ch">${esc(c)}</span>`;
@@ -140,6 +146,7 @@ function renderButtons(){
   if(mode==="normal"){
     btn("+ 인물 추가","",showAdd);
     btn("분리","s",startSplit);
+    btn("✎ 대사 수정","e",startEdit);
     btn("뒤로","z",back);
   }
 }
@@ -151,13 +158,13 @@ function pick(spk){
     if(segPos>=segs.length) return finish(segs.map((t,i)=>({text:t,speaker:segSpk[i]})));
     return render();
   }
-  finish([{text:items[idx].text,speaker:spk}]);
+  finish([{text:textOf(items[idx]),speaker:spk}]);
 }
 
 async function finish(segments){
   const wasLabeled = !!labels.items[items[idx].id];
   labels.items[items[idx].id] = {segments, at:new Date().toISOString()};
-  mode = "normal";
+  mode = "normal"; note = "";
   idx = wasLabeled ? Math.min(idx+1, items.length) : firstUnlabeled(idx+1);
   render();
   await save();
@@ -166,17 +173,39 @@ async function finish(segments){
 function startSplit(){ if(mode!=="normal"||!items[idx]) return; mode="split"; cuts=new Set(); render(); }
 function confirmSplit(){
   if(!cuts.size) return;
-  const t = [...items[idx].text], pts = [0,...[...cuts].sort((a,b)=>a-b),t.length];
+  const t = [...textOf(items[idx])], pts = [0,...[...cuts].sort((a,b)=>a-b),t.length];
   segs = pts.slice(1).map((e,i)=>t.slice(pts[i],e).join(""));
   segPos = 0; segSpk = []; mode = "segs"; render();
 }
 function back(){
+  note = "";
   if(mode==="segs" && segPos>0){ segPos--; segSpk.length=segPos; return render(); }
   mode = "normal"; if(idx>0) idx--; render();
 }
-function next(){ if(mode==="normal" && idx<items.length-1){ idx++; render(); } }
-function goFirst(){ if(mode==="split") return; mode="normal"; idx=firstUnlabeled(); render(); }
+function next(){ note = ""; if(mode==="normal" && idx<items.length-1){ idx++; render(); } }
+function goFirst(){ if(mode==="split") return; note = ""; mode="normal"; idx=firstUnlabeled(); render(); }
 $("prev").onclick = back; $("next").onclick = next; $("first").onclick = goFirst;
+function startEdit(){
+  if(mode!=="normal"||!items[idx]||editing) return;
+  editing = true; $("editbox").hidden = false; $("edit").value = textOf(items[idx]); $("edit").focus();
+}
+function endEdit(){ editing=false; $("editbox").hidden=true; $("edit").blur(); }
+function commitEdit(){
+  const it = items[idx], v = $("edit").value.trim();
+  if(!labels.edits) labels.edits = {};
+  if(!v || v===it.text) delete labels.edits[it.id]; else labels.edits[it.id] = v;
+  const cur = textOf(it), lab = labels.items[it.id];
+  note = "";
+  if(lab){
+    if(lab.segments.length===1) lab.segments[0].text = cur;
+    else if(lab.segments.map(s=>s.text).join("") !== cur){ delete labels.items[it.id]; note = "분리된 대사가 수정되어 다시 라벨링이 필요해요"; }
+  }
+  endEdit(); render(); save();
+}
+$("edit").addEventListener("keydown", e=>{
+  if(e.key==="Enter"){ e.preventDefault(); commitEdit(); }
+  else if(e.key==="Escape"){ endEdit(); }
+});
 function showAdd(){ $("addbox").hidden=false; $("newp").focus(); }
 async function addPerson(){
   const v = $("newp").value.trim();
@@ -190,7 +219,7 @@ $("newp").addEventListener("keydown", e=>{
 });
 
 document.addEventListener("keydown", e=>{
-  if(e.target.tagName==="INPUT" || e.metaKey || e.ctrlKey || e.altKey) return;
+  if(e.target.tagName==="INPUT" || e.target.tagName==="TEXTAREA" || e.metaKey || e.ctrlKey || e.altKey) return;
   if(e.repeat) return;
   const k = e.key;
   if(mode==="split"){
@@ -202,6 +231,7 @@ document.addEventListener("keydown", e=>{
   else if(k==="0") pick(UNKNOWN);
   else if(k==="x"||k==="X") pick(NOISE);
   else if(k==="s"||k==="S") startSplit();
+  else if(k==="e"||k==="E"){ e.preventDefault(); startEdit(); }
   else if(k==="ArrowRight"){ e.preventDefault(); next(); }
   else if(k==="f"||k==="F") goFirst();
   else if(k==="z"||k==="Z"||k==="Backspace"||k==="ArrowLeft"){ e.preventDefault(); back(); }

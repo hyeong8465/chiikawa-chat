@@ -45,8 +45,10 @@ def save_labels(path: Path, data: dict) -> None:
 
 def load_labels(path: Path) -> dict:
     if not path.exists():
-        return {"persons": list(DEFAULT_PERSONS), "items": {}}
-    return json.loads(path.read_text(encoding="utf-8"))
+        return {"persons": list(DEFAULT_PERSONS), "items": {}, "edits": {}}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data.setdefault("edits", {})
+    return data
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -91,6 +93,9 @@ class Handler(BaseHTTPRequestHandler):
         if not (isinstance(data, dict) and isinstance(data.get("persons"), list)
                 and isinstance(data.get("items"), dict)):
             return self._json({"error": "bad shape"}, 400)
+        edits = data.get("edits", {})
+        if not (isinstance(edits, dict) and all(isinstance(k, str) and isinstance(v, str) for k, v in edits.items())):
+            return self._json({"error": "bad edits"}, 400)
         try:
             save_labels(LABELS, data)
         except Exception as e:
