@@ -222,6 +222,48 @@ for (const [tab, panel, other, otherPanel] of [['tab-chat', 'chat', 'tab-tone', 
   };
 }
 
+// 말투 변환
+const toneIn = $('tone-input'), toneOut = $('tone-out'), toneGo = $('tone-go');
+toneIn.oninput = () => { $('tone-count').textContent = `${toneIn.value.length}/200`; };
+
+function toneCard(title, text) {
+  const c = document.createElement('div');
+  c.className = 'card wobble';
+  const h = document.createElement('h2'); h.textContent = title;
+  const p = document.createElement('p'); p.textContent = text;
+  c.append(h, p);
+  if (title !== '하치와레') {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'wobble2'; b.textContent = '복사';
+    b.onclick = async () => {
+      try { await navigator.clipboard.writeText(text); b.textContent = '복사했어요'; }
+      catch { b.textContent = '복사 안 됨'; }
+    };
+    c.append(b);
+  }
+  return c;
+}
+
+$('tone-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const text = toneIn.value.trim();
+  if (!text || toneGo.disabled) return;
+  toneGo.disabled = true;
+  toneOut.replaceChildren(toneCard('하치와레', '음… 어떻게 바꿀까…'));
+  let cards;
+  try {
+    const r = await fetch('/api/convert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.refused) cards = [toneCard('하치와레', d.refused)];
+    else if (r.ok) cards = [toneCard('뜻은 그대로', d.intent), toneCard('살짝 비틀어서', d.twist)];
+    else cards = [toneCard('하치와레', (r.status === 429 ? MSG_RATE : d.message || MSG_RETRY).replace(/^\*[^*]*\*\s*/, ''))];
+  } catch {
+    cards = [toneCard('하치와레', MSG_RETRY.replace(/^\*[^*]*\*\s*/, ''))];
+  }
+  toneOut.replaceChildren(...cards);
+  toneGo.disabled = false;
+};
+
 async function init() {
   msgs = load();
   render();
