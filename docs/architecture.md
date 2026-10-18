@@ -98,7 +98,10 @@ character/       크리에이터 입력 구조
   intro.md       인트로
   episodes.yaml  에피소드 카드
 scripts/
-  fetch_subs.py  자막 수집
+  vtt.py         자동 자막 VTT → 대사 줄
+  fetch_subs.py  자막 수집(본편 선별, 이어받기)
+  preclean.py    기계적 전처리(소리 표시·엔딩곡 제거)
+  rank_episodes.py 하치와레 대사 수 순위
 eval/
   scenarios.yaml 평가 시나리오
   golden/        골든셋 + 사람 채점
