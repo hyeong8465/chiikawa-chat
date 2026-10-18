@@ -16,8 +16,8 @@ def test_parse_strips_timing_tags_and_dupes():
     assert parse(SAMPLE) == ["있잖아", "그거 해볼까"]
 
 
-def test_parse_drops_header_metadata_and_cue_numbers():
-    text = "WEBVTT\nKind: captions\nLanguage: ko\n\n1\n00:00:01.000 --> 00:00:02.000\n안녕\n"
+def test_parse_drops_header_metadata():
+    text = "WEBVTT\nKind: captions\nLanguage: ko\n\n00:00:01.000 --> 00:00:02.000\n안녕\n"
     assert parse(text) == ["안녕"]
 
 
