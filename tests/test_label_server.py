@@ -139,3 +139,11 @@ def test_load_old_file_without_edits(tmp_path):
     p = tmp_path / "l.json"
     p.write_text('{"persons": ["a"], "items": {}}', encoding="utf-8")
     assert load_labels(p)["edits"] == {}
+
+
+def test_targets_filter(tmp_path, monkeypatch):
+    import scripts.label_server as ls
+    monkeypatch.setattr(ls, "ONLY", {"001-0"})
+    (tmp_path / "001.txt").write_text("하치와레\t첫 번째 대사\n하치와레\t두 번째 대사\n", encoding="utf-8")
+    items = ls.build_items(tmp_path, {})
+    assert [i["id"] for i in items if i["id"] in ls.ONLY] == ["001-0"]

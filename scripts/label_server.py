@@ -12,6 +12,8 @@ LABELS = ROOT / "data/raw/label/labels.json"
 HTML = Path(__file__).with_name("label.html")
 MAX_BODY = 5 * 1024 * 1024
 DEFAULT_PERSONS = ["치이카와", "우사기", "하치와레"]
+TARGETS = ROOT / "data/raw/label/targets.json"
+ONLY: set[str] | None = None  # --targets: 근거 대사만 라벨링
 
 
 def build_items(clean_dir: Path, titles: dict[int, str]) -> list[dict]:
@@ -67,7 +69,8 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, HTML.read_bytes(), "text/html; charset=utf-8")
         elif self.path == "/api/items":
             titles = {t["episode"]: t["subtitle"] for t in json.loads(TITLES.read_text(encoding="utf-8"))}
-            self._json(build_items(CLEAN_DIR, titles))
+            items = build_items(CLEAN_DIR, titles)
+            self._json([i for i in items if i["id"] in ONLY] if ONLY else items)
         elif self.path == "/api/labels":
             self._json(load_labels(LABELS))
         else:
@@ -104,5 +107,9 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
+    import sys
+    if "--targets" in sys.argv:
+        ONLY = set(json.loads(TARGETS.read_text(encoding="utf-8")))
+        print(f"근거 대사 {len(ONLY)}줄만")
     print("http://127.0.0.1:8765")
     HTTPServer(("127.0.0.1", 8765), Handler).serve_forever()
