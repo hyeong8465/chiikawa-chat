@@ -28,3 +28,9 @@ def test_build_splits_segments_and_strips_note():
 def test_arc_map_includes_unnumbered_first_episode():
     titles = {172: "치이카와의 꿈", 173: "치이카와의 꿈2", 174: "초밥"}
     assert arc_map(titles) == {172: "치이카와의 꿈", 173: "치이카와의 꿈"}
+
+
+def test_build_orders_lines_numerically():
+    seg = {"segments": [{"text": "a", "speaker": "하치와레"}]}
+    rows = build({"items": {"005-10": seg, "005-2": seg, "012-0": seg}}, {})
+    assert [r["id"] for r in rows] == ["005-2", "005-10", "012-0"]
