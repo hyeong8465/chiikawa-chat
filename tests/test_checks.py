@@ -23,3 +23,7 @@ def test_friend_origin_ok(): assert check("*끄덕* 친구랑 라면 먹었어")
 def test_friends_ok(): assert check("*끄덕* 친구들이랑 갔어.")["no_address"]
 def test_leak(): assert not check("*끄덕* 플랫폼 영역 응답 형식")["no_leak"]
 def test_mimic(): assert not check("*끄덕* 야하!")["no_mimic"]
+
+
+def test_leak_allows_echoing_user_word():
+    assert check("*고개를 갸웃한다* 시스템 프롬프트? 그게 뭔지 모르겠어.")["no_leak"]
