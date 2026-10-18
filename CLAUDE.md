@@ -35,6 +35,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 자막 수집(이어받기) | `uv run python scripts/fetch_subs.py` (한 화: `--only N`) |
 | 자막 전처리 | `uv run python scripts/preclean.py` → `data/raw/pre/` |
 | 화자 라벨링 도구 | `uv run python scripts/label_server.py` → http://127.0.0.1:8765, 결과 `data/raw/label/labels.json` |
+| 말뭉치 통합 | `uv run python scripts/build_corpus.py` → `data/raw/corpus.jsonl` |
 | 미리보기 배포 | `vercel deploy` (운영은 작업 12부터 GitHub 연동) |
 | 배포 확인 | `vercel curl /api/health --deployment <주소>` |
 
