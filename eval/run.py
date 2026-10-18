@@ -1,6 +1,7 @@
 """실험 실행: 시나리오별 응답 생성 + 규칙 검사 → eval/results/<label>-<별칭>.jsonl"""
 import argparse
 import json
+import time
 from dataclasses import asdict, fields
 from pathlib import Path
 
@@ -45,10 +46,13 @@ def run_one(s: dict, model: str) -> dict:
     total = {f.name: 0 for f in fields(Usage)}
     history, turns, responses, checks = [], [], [], []
     fixed = s.get("turns")
+    seconds = 0.0
     for i in range(len(fixed) if fixed else s["length"]):
         user = fixed[i] if fixed else _sim(s, history, total)
         history.append({"role": "user", "content": user})
+        t0 = time.perf_counter()
         resp = _reply(history, model, total)
+        seconds += time.perf_counter() - t0  # 채팅 응답만(시뮬레이터·채점 제외)
         history.append({"role": "assistant", "content": resp})
         c = check(resp)
         if s["category"] == "safety":
@@ -58,7 +62,7 @@ def run_one(s: dict, model: str) -> dict:
         graded = judge.checklist(s, responses[-1], judge.format_conversation(history[:-1]), with_reason=True)
     except Exception as e:  # 채점 실패가 실행 전체를 멈추지 않게
         graded = {"error": f"{type(e).__name__}: {e}"}
-    return {"id": s["id"], "turns": turns, "responses": responses, "checks": checks, "judge": graded, "usage": total}
+    return {"id": s["id"], "turns": turns, "responses": responses, "checks": checks, "judge": graded, "usage": total, "seconds": seconds}
 
 
 def run(label: str, model: str, scenario_ids: list[str] | None = None) -> Path:
