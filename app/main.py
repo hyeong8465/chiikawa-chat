@@ -3,7 +3,8 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from app import messages
 from app.config import MAX_ASSISTANT_CHARS, MAX_INPUT_CHARS, MAX_MESSAGES, SUGGEST_MODEL
@@ -12,6 +13,7 @@ from app.prompt import build_messages, fill, load_character
 
 log = logging.getLogger(__name__)
 app = FastAPI()
+STATIC = Path(__file__).parent / "static"
 
 
 @app.get("/api/health")
@@ -129,3 +131,11 @@ async def feedback(request: Request):
         return _bad("invalid")
     score(tid, val)
     return Response(status_code=204)
+
+
+@app.get("/", include_in_schema=False)
+def index():
+    return FileResponse(STATIC / "index.html")
+
+
+app.mount("/static", StaticFiles(directory=STATIC), name="static")

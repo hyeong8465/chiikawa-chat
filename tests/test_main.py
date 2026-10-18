@@ -222,3 +222,14 @@ def test_feedback_bad(client, monkeypatch, body):
 def test_feedback_bad_json(client):
     r = client.post("/api/feedback", content=b"{", headers={"content-type": "application/json"})
     assert r.status_code == 400
+
+
+def test_index_html(client):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/html")
+    assert "비공식 팬메이드" in r.text
+
+
+def test_static_app_js(client):
+    assert client.get("/static/app.js").status_code == 200
