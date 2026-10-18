@@ -1,13 +1,15 @@
 import json
+import logging
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from app import messages
-from app.config import MAX_INPUT_CHARS, MAX_MESSAGES
+from app.config import MAX_ASSISTANT_CHARS, MAX_INPUT_CHARS, MAX_MESSAGES
 from app.llm import CreditExhausted, stream_chat
 from app.prompt import build_messages, load_character
 
+log = logging.getLogger(__name__)
 app = FastAPI()
 
 
@@ -37,7 +39,7 @@ def _validate(body) -> JSONResponse | None:
         c = m.get("content")
         if not isinstance(c, str) or not c.strip():
             return _bad("invalid")
-        if m["role"] == "user" and len(c) > MAX_INPUT_CHARS:
+        if len(c) > (MAX_INPUT_CHARS if m["role"] == "user" else MAX_ASSISTANT_CHARS):
             return _bad("too_long", messages.TOO_LONG)
     if msgs[-1]["role"] != "user":
         return _bad("invalid")
@@ -67,7 +69,9 @@ async def chat(request: Request):
                     yield _sse("done", {"trace_id": val["trace_id"]})
         except CreditExhausted:
             yield _sse("error", {"code": "credit", "message": messages.CREDIT_EXHAUSTED})
-        except Exception:
+        except Exception as e:
+            # 키·본문 노출 방지: 종류와 상태 코드만
+            log.error("chat 실패: %s status=%s", type(e).__name__, getattr(e, "status_code", None))
             yield _sse("error", {"code": "retry", "message": messages.ERROR_RETRY})
 
     return StreamingResponse(

@@ -90,6 +90,11 @@ def test_accepts_exactly_limit(client, ok):
     assert post(client, [{"role": "user", "content": "가" * 1000}]).status_code == 200
 
 
+def test_rejects_long_assistant(client):
+    r = post(client, [{"role": "assistant", "content": "가" * 2001}, U])
+    assert r.status_code == 400 and r.json()["code"] == "too_long"
+
+
 def test_rejects_too_many(client):
     msgs = [U if i % 2 == 0 else A for i in range(201)]
     assert post(client, msgs).json()["code"] == "too_many"

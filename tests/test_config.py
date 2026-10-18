@@ -1,7 +1,5 @@
 import importlib
 
-import pytest
-
 import app.config as c
 
 
