@@ -44,7 +44,9 @@
 
 ## 제약
 
-- OpenRouter Claude 요청은 공급자 Anthropic 고정(바뀌면 캐시 깨짐)
+- OpenRouter Claude 요청은 공급자 Anthropic 고정(바뀌면 캐시 깨짐). GPT 채점자 요청엔 적용 안 함
+- 크레딧 소진 판단: 402, 또는 403 + `error.metadata.limit_source`
+- 스트리밍 중 오류는 HTTP 200 이후 SSE 데이터의 `error` 객체로 옴 → 상태 코드만 보지 않음
 - IP 제한: 하루 40메시지, 분당 10메시지(설정값). IP는 제한 판단에만 사용
 - 대화당 상한: 남용 방지용, 정상 사용자는 안 닿게. 값은 개발 중 결정
 - 예산: OpenRouter 키 1개, 평가·서비스 공용. 소진 시 사용자가 충전

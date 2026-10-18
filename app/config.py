@@ -5,12 +5,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CHARACTER_DIR = ROOT / "character"
 
-# 값은 작업 1에서 채움
-MODELS = {"sonnet": "", "haiku": "", "judge": "", "judge_strong": ""}
+# OpenRouter 모델 이름(2026-10-18 확인)
+MODELS = {
+    "sonnet": "anthropic/claude-sonnet-5.5",
+    "haiku": "anthropic/claude-haiku-5.5",
+    "judge": "openai/gpt-5.6-luna",
+    "judge_strong": "openai/gpt-5.6-sol",
+}
 CHAT_MODEL = os.getenv("CHAT_MODEL", MODELS["sonnet"])
 SUGGEST_MODEL = os.getenv("SUGGEST_MODEL", MODELS["haiku"])
 JUDGE_MODEL = os.getenv("JUDGE_MODEL", MODELS["judge"])
+# Claude 모델에만 적용. 공급자가 바뀌면 캐시가 깨짐
 PROVIDER = {"order": ["anthropic"], "allow_fallbacks": False}
+# 채팅 경로 시작값. 평가로 조정
+REASONING = {"effort": "low"}
 
 MAX_MESSAGES = 200
 MAX_INPUT_CHARS = 1000
