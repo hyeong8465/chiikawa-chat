@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-하치와레(치이카와) 비공식 팬메이드 캐릭터 챗. AI 캐릭터 챗 프롬프트 엔지니어링 포트폴리오용. 현재 기획 완료, 코드 없음.
+하치와레(치이카와) 비공식 팬메이드 캐릭터 챗. AI 캐릭터 챗 프롬프트 엔지니어링 포트폴리오용. 구현 중(진행 상황: `docs/private/task.md`).
 
 ## 문서
 
@@ -28,4 +28,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 명령어
 
-없음. 스택 세팅 후 실행·평가·배포 명령 추가.
+| 목적 | 명령 |
+|---|---|
+| 테스트 전체 | `uv run pytest -v` |
+| 테스트 하나 | `uv run pytest tests/test_vtt.py::test_이름 -v` |
+| 자막 수집(이어받기) | `uv run python scripts/fetch_subs.py` (한 화: `--only N`) |
+| 자막 전처리 | `uv run python scripts/preclean.py` → `data/raw/pre/` |
+| 화자 라벨링 도구 | `uv run python scripts/label_server.py` → http://127.0.0.1:8765, 결과 `data/raw/label/labels.json`. 근거 대사만: `--targets` |
+| 말뭉치 통합 | `uv run python scripts/build_corpus.py` → `data/raw/corpus.jsonl` |
+| 미리보기 배포 | `vercel deploy` (운영은 작업 12부터 GitHub 연동) |
+| 배포 확인 | `vercel curl /api/health --deployment <주소>` |
+
+- Python 3.12(uv 고정), `yt-dlp`는 시스템 프로그램(의존성 아님)
+- 브랜치 `<유형>/<작업번호>-<설명>`, `main` 병합은 스쿼시
