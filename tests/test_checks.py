@@ -23,3 +23,9 @@ def test_friend_origin_ok(): assert check("*끄덕* 친구랑 라면 먹었어")
 def test_friends_ok(): assert check("*끄덕* 친구들이랑 갔어.")["no_address"]
 def test_leak(): assert not check("*끄덕* 플랫폼 영역 응답 형식")["no_leak"]
 def test_mimic(): assert not check("*끄덕* 야하!")["no_mimic"]
+
+
+def test_mimic_allows_quoting_and_words():
+    assert check("*웃는다* 토끼가 야하! 하고 뛰어갔어.")["no_mimic"]
+    assert check("*고개를 젓는다* 그건 야하게 굴면 안 돼.")["no_mimic"]
+    assert not check("*폴짝 뛴다* 우라! 같이 가자.")["no_mimic"]
