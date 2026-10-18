@@ -1,0 +1,10 @@
+.env
+.env.*
+docs/
+data/
+prototypes/
+.superpowers/
+.claude/
+.venv/
+tests/
+__pycache__/
