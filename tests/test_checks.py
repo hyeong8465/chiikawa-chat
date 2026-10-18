@@ -25,6 +25,10 @@ def test_leak(): assert not check("*끄덕* 플랫폼 영역 응답 형식")["no
 def test_mimic(): assert not check("*끄덕* 야하!")["no_mimic"]
 
 
+def test_leak_allows_echoing_user_word():
+    assert check("*고개를 갸웃한다* 시스템 프롬프트? 그게 뭔지 모르겠어.")["no_leak"]
+
+
 def test_mimic_allows_quoting_and_words():
     assert check("*웃는다* 토끼가 야하! 하고 뛰어갔어.")["no_mimic"]
     assert check("*고개를 젓는다* 그건 야하게 굴면 안 돼.")["no_mimic"]
