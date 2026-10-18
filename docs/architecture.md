@@ -23,7 +23,7 @@
   │ POST /api/chat {messages}
   ▼
 FastAPI → prompt.build(messages)
-  - system: 플랫폼 + 크리에이터 + 에피소드 [캐시 경계 ①]
+  - system: 플랫폼 + 크리에이터 + 인트로 문장 + 주제 카드 [캐시 경계 ①]
   - messages: 대화 전체 [마지막 메시지에 캐시 경계 ②]
   ├→ (서버 앞단) 방화벽 IP 제한 → 초과 시 429 → 화면이 하치와레 고정 문구
   ├→ OpenRouter(운영 모델) → SSE 스트리밍 → 브라우저
@@ -44,7 +44,7 @@ POST /api/convert {text} → 말투 규칙 + 변환 지시 → 1회 호출 → {
 ## 프롬프트
 
 - 상세: `prompt.md`
-- 순서: 플랫폼 → 크리에이터 → 에피소드 카드 → [캐시 ①] → 대화 전체 [캐시 ②]
+- 순서: 플랫폼 → 크리에이터(캐릭터·채팅 가이드·예시) → 인트로 고정 문장 → 주제 카드(`reviewed: true`만) → [캐시 ①] → 대화 전체 [캐시 ②]
 - 조립은 `app/prompt.py` 한 곳에서만
 
 ## 캐싱
@@ -60,14 +60,17 @@ POST /api/convert {text} → 말투 규칙 + 변환 지시 → 1회 호출 → {
 ## 원작 자료 파이프라인
 
 ```
-yt-dlp(자동 자막만, 1~248화 전체) → data/raw/ (gitignore)
-→ 정제: 받아쓰기 오류 교정, 화자 추정, 저확신 줄 표시
-→ 50화 선별: 하치와레 대사량 + 감정 장면 기준. 기준·결과는 사용자 검수
-→ character/episodes.yaml 초안 → 사용자 검수 → 검수 표시
-→ 말투 패턴 분석 → 말투 규칙 초안 → 사용자 검수
+yt-dlp(자동 자막만, 1~248화) → data/raw/ (gitignore)
+→ preclean.py: 소리 표시·엔딩곡 제거
+→ LLM 정제: 받아쓰기 교정 + 화자 추정(정확도 낮음)
+→ 사람 화자 라벨링(label_server.py): 말투용 표본(2~116화) + 지식 근거 대사(--targets)
+→ build_corpus.py: 라벨 + 화 제목 + 주제 묶음 → 말뭉치
+→ 나무위키 사실을 애니 화에 대응(만화 전용 제외) → 사용자 검수
+→ character/research.md(말투·성격·관계·세계관, 출처 화수) → character/*.md
+→ character/episodes.yaml 주제 카드 → 사용자 검수 → reviewed: true만 프롬프트에
 ```
 
-- 화자 추정이 쉬운 이유: 문장으로 말하는 캐릭터가 거의 하치와레뿐. 치이카와·우사기는 감탄사 위주
+- 자동 화자 추정은 실패(자막에 화자 정보 없음) → 사람 라벨링으로 전환
 - 카드 형식: `prompt.md` 지식 영역 참고
 - 출처: https://www.youtube.com/playlist?list=PLsmaUhkCwW3q5q46uc9So2b4D-pZqVZOV (1~248화, 119·240화 비공개). 한국어 자동 자막만 있음, 수동 자막 없음
 
@@ -76,19 +79,21 @@ yt-dlp(자동 자막만, 1~248화 전체) → data/raw/ (gitignore)
 - 상세: `eval.md`
 
 ```
-eval/scenarios.yaml → run.py(버전 × 모델) → checks.py(규칙) + judge.py(GPT 채점)
-→ Langfuse 실험 → 리포트
+eval/scenarios.yaml → run.py(버전 × 모델, 마지막 응답 채점) → checks.py(규칙) + judge.py(GPT 채점)
+→ eval/results/*.jsonl → report.py(표)
 골든셋(사람 채점) → 채점자 일치율 검증
 운영 중 👎 → 시나리오 편입
 ```
 
-## 폴더 구조 (예정)
+## 폴더 구조
 
 ```
 app/
-  main.py        라우트: /api/chat(SSE), /api/suggest, /api/convert, /api/feedback
+  main.py        라우트: /, /api/intro, /api/chat(SSE), /api/suggest, /api/convert, /api/feedback
   llm.py         OpenRouter + Langfuse
   prompt.py      프롬프트 조립(앱·평가 공용)
+  messages.py    고정 문구(오류·한도·크레딧)
+  prompts/       suggest.md, convert.md
   static/        index.html, app.js, style.css
 character/       크리에이터 입력 구조
   platform.md    플랫폼 영역
@@ -96,24 +101,30 @@ character/       크리에이터 입력 구조
   chat_guide.md  채팅 가이드
   examples.md    대화 예시
   intro.md       인트로
-  episodes.yaml  에피소드 카드
+  episodes.yaml  주제 카드
+  research.md    조사 자료(출처 화수)
 scripts/
   vtt.py         자동 자막 VTT → 대사 줄
   fetch_subs.py  자막 수집(본편 선별, 이어받기)
   preclean.py    기계적 전처리(소리 표시·엔딩곡 제거)
-  rank_episodes.py 하치와레 대사 수 순위
+  label_server.py 화자 라벨링 로컬 도구
+  build_corpus.py 라벨 + 제목 + 주제 → 말뭉치
 eval/
   scenarios.yaml 평가 시나리오
   golden/        골든셋 + 사람 채점
+  prompts/       채점·사용자 흉내 프롬프트
+  results/       실행 결과(jsonl)
   checks.py      규칙 검사
   judge.py       LLM 채점
   run.py         실험 실행
+  report.py      결과 표
   cost_check.py  캐싱 비용 검증
+  convert_scenarios.yaml 말투 변환기 시나리오
 data/raw/        원본 자막(gitignore)
 docs/
 ```
 
-- Vercel 진입점 위치: 개발 첫 단계에서 확인 후 결정
+- Vercel 진입점: `app/main.py`(무설정 FastAPI 인식)
 
 ## 운영 보호
 

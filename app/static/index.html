@@ -24,14 +24,22 @@
     <div class="chips" id="chips"></div>
     <form id="form">
       <label class="sr" for="input">메시지</label>
-      <input id="input" class="wobble2" placeholder="하치와레에게 말 걸기" autocomplete="off">
+      <input id="input" class="wobble2" maxlength="1000" placeholder="하치와레에게 말 걸기" autocomplete="off">
       <button id="send" class="wobble" aria-label="보내기">
         <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#2B2B2B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg>
       </button>
     </form>
   </main>
   <main id="tone" role="tabpanel" aria-labelledby="tab-tone" hidden>
-    <p class="soon">준비 중이에요</p>
+    <div class="tone-body">
+      <p class="tone-help">하고 싶은 말을 적으면 하치와레 말투로 바꿔 줘요.</p>
+      <form id="tone-form" class="tone-form">
+        <label class="sr" for="tone-input">바꿀 문장</label>
+        <textarea id="tone-input" class="wobble2" maxlength="200" rows="3" placeholder="예: 늦지 말고 7시까지 나와"></textarea>
+        <div class="tone-bar"><span id="tone-count">0/200</span><button id="tone-go" class="wobble">바꾸기</button></div>
+      </form>
+      <div id="tone-out" aria-live="polite"></div>
+    </div>
   </main>
   <p class="notice">비공식 팬메이드 · AI 응답 · 비영리 · 권리자 요청 시 즉시 내립니다</p>
 </div>

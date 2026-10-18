@@ -84,6 +84,7 @@ def test_request_body_sent(monkeypatch):
     b = reqs[0]
     assert b["provider"]["allow_fallbacks"] is False
     assert b["usage"] == {"include": True} and b["reasoning"]
+    assert b["max_tokens"] == 1024
 
 
 def test_provider_only_for_anthropic(monkeypatch):

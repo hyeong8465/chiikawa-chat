@@ -24,6 +24,8 @@ USER_TURNS = [
 
 
 def savings(costs: dict[str, float]) -> dict[str, float]:
+    if not costs["none"]:
+        return {"system": 0.0, "full": 0.0}
     return {k: 1 - costs[k] / costs["none"] for k in ("system", "full")}
 
 

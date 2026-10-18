@@ -8,7 +8,7 @@ from typing import Iterator
 
 import openai
 
-from app.config import CHAT_MODEL, PROMPT_VERSION, PROVIDER, REASONING
+from app.config import CHAT_MODEL, MAX_TOKENS_CHAT, MAX_TOKENS_OTHER, PROMPT_VERSION, PROVIDER, REASONING
 
 log = logging.getLogger(__name__)
 
@@ -67,6 +67,7 @@ def _kwargs(messages, model, chat: bool, trace_id: str) -> dict:
     return {
         "model": model,
         "messages": messages,
+        "max_tokens": MAX_TOKENS_CHAT if chat else MAX_TOKENS_OTHER,
         "extra_body": extra,
         "trace_id": trace_id,
         "metadata": {"prompt_version": PROMPT_VERSION},

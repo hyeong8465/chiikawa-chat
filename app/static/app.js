@@ -123,7 +123,12 @@ async function suggest() {
   } catch { /* 칩 숨김 */ }
 }
 
-const payload = () => msgs.map(({ role, content }) => ({ role, content }));
+// 최근 80~160개만 전송. 80개 단위로 잘라 앞부분이 매 턴 바뀌지 않게(캐시 유지), 서버 상한 200 아래 유지
+const WINDOW = 80;
+const payload = () => {
+  const start = msgs.length <= WINDOW * 2 ? 0 : Math.floor((msgs.length - WINDOW) / WINDOW) * WINDOW;
+  return msgs.slice(start).map(({ role, content }) => ({ role, content }));
+};
 
 // SSE 파서: 이벤트 경계 \n\n, 청크가 중간에서 잘려도 버퍼에 보관
 async function readSSE(res, onEvent) {
@@ -194,7 +199,7 @@ async function send(text) {
     if (!failed) { fail(MSG_RETRY, text); failed = true; }
   }
   if (!failed && traceId) {
-    msgs.push({ role: 'assistant', content: acc, trace_id: traceId });
+    msgs.push({ role: 'assistant', content: acc.slice(0, 2000), trace_id: traceId });  // 서버 assistant 상한과 같게
     save();
   } else if (!failed) { // done 없이 스트림 종료
     fail(MSG_RETRY, text);
@@ -216,6 +221,48 @@ for (const [tab, panel, other, otherPanel] of [['tab-chat', 'chat', 'tab-tone', 
     $(otherPanel).hidden = true;
   };
 }
+
+// 말투 변환
+const toneIn = $('tone-input'), toneOut = $('tone-out'), toneGo = $('tone-go');
+toneIn.oninput = () => { $('tone-count').textContent = `${toneIn.value.length}/200`; };
+
+function toneCard(title, text) {
+  const c = document.createElement('div');
+  c.className = 'card wobble';
+  const h = document.createElement('h2'); h.textContent = title;
+  const p = document.createElement('p'); p.textContent = text;
+  c.append(h, p);
+  if (title !== '하치와레') {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'wobble2'; b.textContent = '복사';
+    b.onclick = async () => {
+      try { await navigator.clipboard.writeText(text); b.textContent = '복사했어요'; }
+      catch { b.textContent = '복사 안 됨'; }
+    };
+    c.append(b);
+  }
+  return c;
+}
+
+$('tone-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const text = toneIn.value.trim();
+  if (!text || toneGo.disabled) return;
+  toneGo.disabled = true;
+  toneOut.replaceChildren(toneCard('하치와레', '음… 어떻게 바꿀까…'));
+  let cards;
+  try {
+    const r = await fetch('/api/convert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.refused) cards = [toneCard('하치와레', d.refused)];
+    else if (r.ok) cards = [toneCard('뜻은 그대로', d.intent), toneCard('살짝 비틀어서', d.twist)];
+    else cards = [toneCard('하치와레', (r.status === 429 ? MSG_RATE : d.message || MSG_RETRY).replace(/^\*[^*]*\*\s*/, ''))];
+  } catch {
+    cards = [toneCard('하치와레', MSG_RETRY.replace(/^\*[^*]*\*\s*/, ''))];
+  }
+  toneOut.replaceChildren(...cards);
+  toneGo.disabled = false;
+};
 
 async function init() {
   msgs = load();
