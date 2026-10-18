@@ -23,7 +23,7 @@
   │ POST /api/chat {messages}
   ▼
 FastAPI → prompt.build(messages)
-  - system: 플랫폼 + 크리에이터 + 에피소드 [캐시 경계 ①]
+  - system: 플랫폼 + 크리에이터 + 인트로 문장 + 주제 카드 [캐시 경계 ①]
   - messages: 대화 전체 [마지막 메시지에 캐시 경계 ②]
   ├→ (서버 앞단) 방화벽 IP 제한 → 초과 시 429 → 화면이 하치와레 고정 문구
   ├→ OpenRouter(운영 모델) → SSE 스트리밍 → 브라우저

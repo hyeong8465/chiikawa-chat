@@ -1,4 +1,5 @@
 import json
+import re
 import logging
 from pathlib import Path
 
@@ -7,7 +8,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 
 from app import messages
-from app.config import CHAT_MODEL, MAX_ASSISTANT_CHARS, MAX_INPUT_CHARS, MAX_MESSAGES, SUGGEST_MODEL
+from app.config import CHAT_MODEL, MAX_TOTAL_CHARS, MAX_ASSISTANT_CHARS, MAX_INPUT_CHARS, MAX_MESSAGES, SUGGEST_MODEL
 from app.llm import CreditExhausted, complete, extract_json, score, stream_chat
 from app.prompt import build_messages, fill, load_character, speech_rules
 
@@ -44,6 +45,8 @@ def _validate(body, last: str = "user") -> JSONResponse | None:
             return _bad("invalid")
         if len(c) > (MAX_INPUT_CHARS if m["role"] == "user" else MAX_ASSISTANT_CHARS):
             return _bad("too_long", messages.TOO_LONG)
+    if sum(len(m["content"]) for m in msgs) > MAX_TOTAL_CHARS:
+        return _bad("too_long", messages.TOO_LONG)
     if msgs[-1]["role"] != last:
         return _bad("invalid")
     return None
@@ -106,7 +109,9 @@ async def suggest(request: Request):
     if (err := _validate(body, last="assistant")) is not None:
         return err
     names = {"user": "사용자", "assistant": "하치와레"}
-    convo = "\n".join(f"{names[m['role']]}: {m['content']}" for m in body["messages"][-SUGGEST_RECENT:])
+    # 줄바꿈·꺾쇠 치환: 사용자 글로 "하치와레: …" 화자 위조나 태그 탈출 방지
+    clean = lambda c: c.replace("\n", " ").replace("<", "＜").replace(">", "＞")
+    convo = "\n".join(f"{names[m['role']]}: {clean(m['content'])}" for m in body["messages"][-SUGGEST_RECENT:])
     tpl = (Path(__file__).parent / "prompts" / "suggest.md").read_text(encoding="utf-8")
     try:
         text, _ = complete([{"role": "user", "content": fill(tpl, conversation=convo)}], SUGGEST_MODEL)
@@ -169,7 +174,7 @@ async def feedback(request: Request):
         return _bad("invalid")
     tid = body.get("trace_id") if isinstance(body, dict) else None
     val = body.get("value") if isinstance(body, dict) else None
-    if not isinstance(tid, str) or not tid.strip() or len(tid) > 64:
+    if not isinstance(tid, str) or not re.fullmatch(r"[0-9a-f]{32}", tid):  # 서버가 만든 uuid4().hex 형식만
         return _bad("invalid")
     if type(val) is not int or val not in (1, -1):
         return _bad("invalid")

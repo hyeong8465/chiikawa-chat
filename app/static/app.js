@@ -123,7 +123,12 @@ async function suggest() {
   } catch { /* 칩 숨김 */ }
 }
 
-const payload = () => msgs.map(({ role, content }) => ({ role, content }));
+// 최근 80~160개만 전송. 80개 단위로 잘라 앞부분이 매 턴 바뀌지 않게(캐시 유지), 서버 상한 200 아래 유지
+const WINDOW = 80;
+const payload = () => {
+  const start = msgs.length <= WINDOW * 2 ? 0 : Math.floor((msgs.length - WINDOW) / WINDOW) * WINDOW;
+  return msgs.slice(start).map(({ role, content }) => ({ role, content }));
+};
 
 // SSE 파서: 이벤트 경계 \n\n, 청크가 중간에서 잘려도 버퍼에 보관
 async function readSSE(res, onEvent) {
@@ -194,7 +199,7 @@ async function send(text) {
     if (!failed) { fail(MSG_RETRY, text); failed = true; }
   }
   if (!failed && traceId) {
-    msgs.push({ role: 'assistant', content: acc, trace_id: traceId });
+    msgs.push({ role: 'assistant', content: acc.slice(0, 2000), trace_id: traceId });  // 서버 assistant 상한과 같게
     save();
   } else if (!failed) { // done 없이 스트림 종료
     fail(MSG_RETRY, text);

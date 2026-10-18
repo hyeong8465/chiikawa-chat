@@ -23,8 +23,10 @@ REASONING = {"effort": "low"}
 MAX_MESSAGES = 200
 MAX_INPUT_CHARS = 1000
 MAX_ASSISTANT_CHARS = 2000
-RATE_PER_MIN = 10
-RATE_PER_DAY = 40
+MAX_TOTAL_CHARS = 60000  # 요청 하나의 글자 수 합계. 위조 대화로 비용 부풀리기 방지
+# 출력 상한. 채팅은 reasoning 토큰도 포함되므로 넉넉히
+MAX_TOKENS_CHAT = 1024
+MAX_TOKENS_OTHER = 400
 
 
 def _prompt_version() -> str:
