@@ -87,3 +87,10 @@ def build_messages(
 def speech_rules(c: Character) -> str:
     m = re.search(r"^## 말투[^\n]*\n(.*?)(?=^## |\Z)", c.character, re.M | re.S)
     return m.group(1).strip() if m else ""
+
+
+def fill(template: str, **values: str) -> str:
+    # 프롬프트에 JSON 예시의 중괄호가 있어 str.format 대신 자리표시만 치환
+    for k, v in values.items():
+        template = template.replace("{" + k + "}", v)
+    return template

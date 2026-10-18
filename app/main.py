@@ -1,13 +1,14 @@
 import json
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from app import messages
-from app.config import MAX_ASSISTANT_CHARS, MAX_INPUT_CHARS, MAX_MESSAGES
-from app.llm import CreditExhausted, stream_chat
-from app.prompt import build_messages, load_character
+from app.config import MAX_ASSISTANT_CHARS, MAX_INPUT_CHARS, MAX_MESSAGES, SUGGEST_MODEL
+from app.llm import CreditExhausted, complete, extract_json, score, stream_chat
+from app.prompt import build_messages, fill, load_character
 
 log = logging.getLogger(__name__)
 app = FastAPI()
@@ -27,7 +28,7 @@ def _bad(code: str, message: str = messages.ERROR_RETRY):
     return JSONResponse({"code": code, "message": message}, status_code=400)
 
 
-def _validate(body) -> JSONResponse | None:
+def _validate(body, last: str = "user") -> JSONResponse | None:
     msgs = body.get("messages") if isinstance(body, dict) else None
     if not isinstance(msgs, list) or not msgs:
         return _bad("invalid")
@@ -41,7 +42,7 @@ def _validate(body) -> JSONResponse | None:
             return _bad("invalid")
         if len(c) > (MAX_INPUT_CHARS if m["role"] == "user" else MAX_ASSISTANT_CHARS):
             return _bad("too_long", messages.TOO_LONG)
-    if msgs[-1]["role"] != "user":
+    if msgs[-1]["role"] != last:
         return _bad("invalid")
     return None
 
@@ -79,3 +80,52 @@ async def chat(request: Request):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+SUGGEST_RECENT = 6
+SUGGEST_MAX_CHARS = 30
+
+
+def _parse_suggestions(text: str) -> list[str]:
+    out = extract_json(text)
+    if not isinstance(out, list) or not all(isinstance(x, str) for x in out):
+        return []
+    out = [x.strip() for x in out if x.strip()]
+    out = [x for x in out if len(x) <= SUGGEST_MAX_CHARS]
+    return out if len(out) == 3 else []
+
+
+@app.post("/api/suggest")
+async def suggest(request: Request):
+    try:
+        body = await request.json()
+    except ValueError:
+        return _bad("invalid")
+    if (err := _validate(body, last="assistant")) is not None:
+        return err
+    names = {"user": "사용자", "assistant": "하치와레"}
+    convo = "\n".join(f"{names[m['role']]}: {m['content']}" for m in body["messages"][-SUGGEST_RECENT:])
+    tpl = (Path(__file__).parent / "prompts" / "suggest.md").read_text(encoding="utf-8")
+    try:
+        text, _ = complete([{"role": "user", "content": fill(tpl, conversation=convo)}], SUGGEST_MODEL)
+        return {"suggestions": _parse_suggestions(text)}
+    except Exception as e:
+        # 본 대화에 영향 없게 숨김. 크레딧 소진 포함 모든 실패
+        log.warning("suggest 실패: %s", type(e).__name__)
+        return {"suggestions": []}
+
+
+@app.post("/api/feedback")
+async def feedback(request: Request):
+    try:
+        body = await request.json()
+    except ValueError:
+        return _bad("invalid")
+    tid = body.get("trace_id") if isinstance(body, dict) else None
+    val = body.get("value") if isinstance(body, dict) else None
+    if not isinstance(tid, str) or not tid.strip() or len(tid) > 64:
+        return _bad("invalid")
+    if type(val) is not int or val not in (1, -1):
+        return _bad("invalid")
+    score(tid, val)
+    return Response(status_code=204)

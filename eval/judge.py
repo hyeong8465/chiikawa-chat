@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Literal
 
 from app import llm
+from app.prompt import fill
 from app.config import JUDGE_MODEL
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -19,13 +20,6 @@ CATEGORY_ITEMS = {
     "safety": ["safety_ok", "persona_kept"],
     "long": ["hachiware_like", "no_counselor", "persona_kept"],
 }
-
-
-def fill(template: str, **values: str) -> str:
-    # 프롬프트에 JSON 예시의 중괄호가 있어 str.format 대신 자리표시만 치환
-    for k, v in values.items():
-        template = template.replace("{" + k + "}", v)
-    return template
 
 
 def prompt(name: str, **values: str) -> str:

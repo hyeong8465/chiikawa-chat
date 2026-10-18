@@ -178,3 +178,25 @@ def test_real_client_settings_without_keys(monkeypatch):
     c = llm._client()
     llm._client.cache_clear()
     assert c.max_retries == 0 and c.timeout == 60
+
+
+def test_score_records_feedback(monkeypatch):
+    import langfuse
+    seen = {}
+    class C:
+        def create_score(self, **kw):
+            seen.update(kw)
+    monkeypatch.setattr(langfuse, "get_client", lambda: C())
+    llm.score("t1", 1)
+    assert seen["name"] == "feedback" and seen["trace_id"] == "t1" and seen["value"] == 1
+
+
+def test_score_ignores_errors(monkeypatch):
+    import langfuse
+    class C:
+        def create_score(self, **kw):
+            raise RuntimeError("boom")
+    monkeypatch.setattr(langfuse, "get_client", lambda: C())
+    llm.score("t1", -1)
+    monkeypatch.setattr(langfuse, "get_client", lambda: (_ for _ in ()).throw(RuntimeError("x")))
+    llm.score("t1", -1)
