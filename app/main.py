@@ -149,7 +149,8 @@ async def convert(request: Request):
         return _bad("too_long", messages.TOO_LONG)
     tpl = (Path(__file__).parent / "prompts" / "convert.md").read_text(encoding="utf-8")
     rules = speech_rules(load_character())
-    prompt = fill(fill(tpl, speech_rules=rules), text=text)  # 규칙 먼저: 사용자 입력 속 자리표시 재치환 방지
+    safe = text.replace("<", "＜").replace(">", "＞")  # </text>로 태그를 닫고 지시를 끼워 넣는 것 방지
+    prompt = fill(fill(tpl, speech_rules=rules), text=safe)  # 규칙 먼저: 사용자 입력 속 자리표시 재치환 방지
     try:
         out, _ = complete([{"role": "user", "content": prompt}], CHAT_MODEL)
         return _parse_convert(out)
