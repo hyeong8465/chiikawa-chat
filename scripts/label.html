@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>화자 라벨링</title>
+<style>
+body{font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;max-width:860px;margin:0 auto;padding:16px;background:#fafafa;color:#222}
+#top{display:flex;justify-content:space-between;align-items:baseline;font-size:14px;color:#555}
+#head{margin:12px 0;font-weight:bold}
+.ctx{color:#999;font-size:15px;margin:3px 0}
+#cur{font-size:30px;line-height:1.5;margin:18px 0;padding:14px;background:#fff;border:1px solid #ddd;border-radius:8px;word-break:keep-all}
+.seg{padding:2px 4px;border-radius:4px}
+.seg.active{background:#ffe27a;outline:2px solid #e0a800}
+.seg.done{background:#d8f0d8}
+#btns{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+button{min-height:44px;padding:0 16px;font-size:16px;border:1px solid #bbb;border-radius:6px;background:#fff;cursor:pointer}
+button:hover{background:#eef}
+button kbd{font-size:12px;color:#888;margin-right:6px}
+button.hw{border-color:#e08a00}
+#splitbox{font-size:30px;line-height:2;margin:12px 0}
+.ch{padding:0 1px}
+.gap{display:inline-block;width:10px;height:1.2em;vertical-align:middle;cursor:pointer;border-radius:3px}
+.gap:hover{background:#cde}
+.gap.on{background:#e33;width:6px;margin:0 3px}
+#addbox input{height:40px;font-size:16px;padding:0 8px}
+#status{font-size:13px}
+.err{color:#c00}
+</style>
+</head>
+<body>
+<div id="top"><span id="prog"></span><span id="status"></span></div>
+<div id="head"></div>
+<div id="before"></div>
+<div id="cur"></div>
+<div id="after"></div>
+<div id="splitbox" hidden></div>
+<div id="btns"></div>
+<div id="addbox" hidden>
+  <input id="newp" placeholder="인물 이름" autocomplete="off">
+  <button id="addok">추가</button>
+</div>
+<p style="color:#888;font-size:13px">숫자: 인물 / 0: 모름 / x: 잡음 / s: 분리 / z, Backspace: 뒤로</p>
+<script>
+const $ = id => document.getElementById(id);
+const UNKNOWN = "모름", NOISE = "잡음/대사 아님";
+let items = [], labels = {persons: [], items: {}}, idx = 0;
+let mode = "normal";          // normal | split | segs
+let cuts = new Set();         // split 모드의 분리 위치 (문자 사이 인덱스)
+let segs = [], segPos = 0, segSpk = [];
+
+function esc(s){return s.replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function setStatus(ok){const s=$("status");s.textContent=ok?"저장됨":"저장 실패";s.className=ok?"":"err";}
+
+async function save(){
+  try{
+    const r = await fetch("/api/labels",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(labels)});
+    setStatus(r.ok && (await r.json()).ok);
+  }catch(e){setStatus(false);}
+}
+
+function firstUnlabeled(from=0){
+  for(let i=from;i<items.length;i++) if(!labels.items[items[i].id]) return i;
+  return items.length;
+}
+
+function render(){
+  const done = items.filter(i=>labels.items[i.id]).length;
+  let hw = 0;
+  for(const v of Object.values(labels.items)) for(const s of v.segments) if(s.speaker==="하치와레") hw++;
+  $("prog").textContent = `진행 ${done}/${items.length} · 하치와레 ${hw}개`;
+  const it = items[idx];
+  if(!it){
+    $("head").textContent = "모든 항목 완료";
+    for(const k of ["before","after","cur"]) $(k).innerHTML="";
+    $("splitbox").hidden = true; renderButtons(); return;
+  }
+  $("head").textContent = `${it.episode}화 ${it.title} (${idx+1}/${items.length})`;
+  $("before").innerHTML = it.before.map(t=>`<div class="ctx">${esc(t)}</div>`).join("");
+  $("after").innerHTML = it.after.map(t=>`<div class="ctx">${esc(t)}</div>`).join("");
+  if(mode==="segs"){
+    $("cur").innerHTML = segs.map((t,i)=>`<span class="seg ${i===segPos?"active":i<segPos?"done":""}">${esc(t)}${i<segPos?` [${esc(segSpk[i])}]`:""}</span>`).join(" | ");
+  } else {
+    const prev = labels.items[it.id];
+    $("cur").innerHTML = esc(it.text) + (prev ? `<div class="ctx">기존: ${prev.segments.map(s=>esc(s.speaker)).join(", ")}</div>` : "");
+  }
+  renderSplit(); renderButtons();
+}
+
+function renderSplit(){
+  const box = $("splitbox");
+  box.hidden = mode!=="split";
+  if(mode!=="split") return;
+  const t = [...items[idx].text];
+  let h = "";
+  t.forEach((c,i)=>{
+    h += `<span class="ch">${esc(c)}</span>`;
+    if(i<t.length-1) h += `<span class="gap ${cuts.has(i+1)?"on":""}" data-i="${i+1}"></span>`;
+  });
+  box.innerHTML = h;
+  box.querySelectorAll(".gap").forEach(g=>g.onclick=()=>{
+    const i=+g.dataset.i; cuts.has(i)?cuts.delete(i):cuts.add(i); renderSplit(); renderButtons();
+  });
+}
+
+function btn(label, key, fn, cls=""){
+  const b = document.createElement("button");
+  b.innerHTML = key ? `<kbd>${key}</kbd>${esc(label)}` : esc(label);
+  if(cls) b.className = cls;
+  b.onclick = fn; $("btns").appendChild(b);
+}
+
+function renderButtons(){
+  $("btns").innerHTML = "";
+  if(!items[idx]) { btn("뒤로","z",back); return; }
+  if(mode==="split"){
+    btn(`확정 (${cuts.size+1}조각)`,"Enter",confirmSplit);
+    btn("취소","Esc",()=>{mode="normal";render();});
+    return;
+  }
+  labels.persons.forEach((p,i)=>{ if(i<9) btn(p,i+1,()=>pick(p),p==="하치와레"?"hw":""); else btn(p,"",()=>pick(p)); });
+  btn("모름",0,()=>pick(UNKNOWN));
+  btn("잡음/대사 아님","x",()=>pick(NOISE));
+  if(mode==="normal"){
+    btn("+ 인물 추가","",showAdd);
+    btn("분리","s",startSplit);
+    btn("뒤로","z",back);
+  }
+}
+
+function pick(spk){
+  if(mode==="split" || !items[idx]) return;
+  if(mode==="segs"){
+    segSpk[segPos] = spk; segPos++;
+    if(segPos>=segs.length) return finish(segs.map((t,i)=>({text:t,speaker:segSpk[i]})));
+    return render();
+  }
+  finish([{text:items[idx].text,speaker:spk}]);
+}
+
+async function finish(segments){
+  labels.items[items[idx].id] = {segments, at:new Date().toISOString()};
+  mode = "normal";
+  idx = firstUnlabeled(idx+1);
+  render();
+  await save();
+}
+
+function startSplit(){ if(mode!=="normal"||!items[idx]) return; mode="split"; cuts=new Set(); render(); }
+function confirmSplit(){
+  if(!cuts.size) return;
+  const t = [...items[idx].text], pts = [0,...[...cuts].sort((a,b)=>a-b),t.length];
+  segs = pts.slice(1).map((e,i)=>t.slice(pts[i],e).join(""));
+  segPos = 0; segSpk = []; mode = "segs"; render();
+}
+function back(){
+  if(mode==="segs" && segPos>0){ segPos--; segSpk.length=segPos; return render(); }
+  mode = "normal"; if(idx>0) idx--; render();
+}
+function showAdd(){ $("addbox").hidden=false; $("newp").focus(); }
+async function addPerson(){
+  const v = $("newp").value.trim();
+  if(v && !labels.persons.includes(v)){ labels.persons.push(v); await save(); }
+  $("newp").value=""; $("addbox").hidden=true; $("newp").blur(); render();
+}
+$("addok").onclick = addPerson;
+$("newp").addEventListener("keydown", e=>{
+  if(e.key==="Enter"){ e.preventDefault(); addPerson(); }
+  if(e.key==="Escape"){ $("newp").value=""; $("addbox").hidden=true; $("newp").blur(); }
+});
+
+document.addEventListener("keydown", e=>{
+  if(e.target.tagName==="INPUT" || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key;
+  if(mode==="split"){
+    if(k==="Enter"){ e.preventDefault(); confirmSplit(); }
+    else if(k==="Escape"){ mode="normal"; render(); }
+    return;
+  }
+  if(k>="1" && k<="9"){ const p=labels.persons[+k-1]; if(p) pick(p); }
+  else if(k==="0") pick(UNKNOWN);
+  else if(k==="x"||k==="X") pick(NOISE);
+  else if(k==="s"||k==="S") startSplit();
+  else if(k==="z"||k==="Z"||k==="Backspace"){ e.preventDefault(); back(); }
+});
+
+(async()=>{
+  [items, labels] = await Promise.all([fetch("/api/items").then(r=>r.json()), fetch("/api/labels").then(r=>r.json())]);
+  idx = firstUnlabeled(); render();
+})();
+</script>
+</body>
+</html>
