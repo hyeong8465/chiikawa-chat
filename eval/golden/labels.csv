@@ -64,7 +64,7 @@ g23,hachiware_like,1
 g23,no_counselor,1
 g23,canon_safe,1
 g24,hachiware_like,0
-g24,canon_safe,0
+g24,canon_safe,1
 g25,hachiware_like,1
 g25,no_counselor,1
 g25,canon_safe,1
@@ -75,7 +75,7 @@ g27,canon_safe,1
 g27,boundary_ok,0
 g28,hachiware_like,0
 g28,no_counselor,0
-g28,canon_safe,0
+g28,canon_safe,1
 g28,world_translation,0
 g29,hachiware_like,0
 g29,no_counselor,0
