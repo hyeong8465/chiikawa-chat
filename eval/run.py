@@ -89,10 +89,39 @@ def run(label: str, model: str, scenario_ids: list[str] | None = None) -> Path:
     return path
 
 
+def rejudge(path: Path) -> None:
+    # 응답은 그대로, 채점만 다시(채점 기준·채점자를 바꾼 뒤)
+    scen = {s["id"]: s for s in yaml.safe_load(SCENARIOS.read_text(encoding="utf-8"))}
+    rows = [json.loads(l) for l in path.read_text(encoding="utf-8").splitlines()]
+
+    def one(r: dict) -> dict:
+        history = []
+        for u, a in zip(r["turns"], r["responses"]):
+            history += [{"role": "user", "content": u}, {"role": "assistant", "content": a}]
+        try:
+            return judge.checklist(scen[r["id"]], r["responses"][-1], judge.format_conversation(history[:-1]), with_reason=True)
+        except Exception as e:
+            return {"error": f"{type(e).__name__}: {e}"}
+
+    first = one(rows[0])  # 캐시 먼저
+    with ThreadPoolExecutor(8) as ex:
+        for r, j in zip(rows, [first, *ex.map(one, rows[1:])]):
+            r["judge"] = j
+    path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
+    u = judge.USAGE
+    print(f"채점 오류 {sum('error' in r['judge'] for r in rows)}/{len(rows)}, 채점자 ${u['cost']:.4f}, 캐시 읽기 {u['cache_read_tokens']}/{u['input_tokens']}토큰 -> {path}")
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--label", required=True)
-    ap.add_argument("--model", required=True, choices=[k for k in MODELS if not k.startswith("judge")])
+    ap.add_argument("--label")
+    ap.add_argument("--model", choices=[k for k in MODELS if not k.startswith("judge")])
     ap.add_argument("--only", help="시나리오 id 쉼표 구분")
+    ap.add_argument("--rejudge", type=Path, help="결과 파일의 채점만 다시")
     a = ap.parse_args()
-    run(a.label, a.model, a.only.split(",") if a.only else None)
+    if a.rejudge:
+        rejudge(a.rejudge)
+    elif a.label and a.model:
+        run(a.label, a.model, a.only.split(",") if a.only else None)
+    else:
+        ap.error("--label과 --model, 또는 --rejudge")

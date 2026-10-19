@@ -128,3 +128,15 @@ def test_agree_table_directions():
     h = {("g1", "canon_safe"): True, ("g2", "canon_safe"): False, ("g3", "canon_safe"): True}
     m = {("g1", "canon_safe"): False, ("g2", "canon_safe"): True, ("g3", "canon_safe"): True}
     assert "| canon_safe | 1/3 | 1 | 1 |" in table(h, m)
+
+
+def test_rejudge_keeps_responses(monkeypatch, tmp_path):
+    scen(monkeypatch, tmp_path, [{"id": "d", "category": "daily", "turns": ["a", "b"], "note": ""}])
+    seen = []
+    monkeypatch.setattr(judge, "checklist", lambda s, resp, convo, with_reason: seen.append(convo) or {"ok": True})
+    p = tmp_path / "r.jsonl"
+    p.write_text(json.dumps({"id": "d", "turns": ["a", "b"], "responses": ["x", "y"], "judge": {"error": "old"}}) + "\n")
+    run.rejudge(p)
+    (r,) = read(p)
+    assert r["judge"] == {"ok": True} and r["responses"] == ["x", "y"]
+    assert seen == ["사용자: a\n하치와레: x\n사용자: b"]  # 마지막 응답 앞까지가 맥락
