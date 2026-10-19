@@ -140,3 +140,8 @@ def test_rejudge_keeps_responses(monkeypatch, tmp_path):
     (r,) = read(p)
     assert r["judge"] == {"ok": True} and r["responses"] == ["x", "y"]
     assert seen == ["사용자: a\n하치와레: x\n사용자: b"]  # 마지막 응답 앞까지가 맥락
+
+
+def test_messages_split_fixed_part():
+    assert judge._messages("고정\n===\n변함") == [{"role": "system", "content": "고정"}, {"role": "user", "content": "변함"}]
+    assert judge._messages("하나") == [{"role": "user", "content": "하나"}]
