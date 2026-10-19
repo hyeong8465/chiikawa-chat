@@ -35,9 +35,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 자막 수집(이어받기) | `uv run python scripts/fetch_subs.py` (한 화: `--only N`) |
 | 자막 전처리 | `uv run python scripts/preclean.py` → `data/raw/pre/` |
 | 화자 라벨링 도구 | `uv run python scripts/label_server.py` → http://127.0.0.1:8765, 결과 `data/raw/label/labels.json`. 근거 대사만: `--targets` |
+| 골든셋 채점 도구 | `uv run python scripts/grade_server.py` → http://127.0.0.1:8766, 결과 `eval/golden/labels.csv`(누를 때마다 저장) |
 | 말뭉치 통합 | `uv run python scripts/build_corpus.py` → `data/raw/corpus.jsonl` |
 | 로컬 서버 | `uv run --env-file .env uvicorn app.main:app --reload` → http://127.0.0.1:8000 (실제 모델 호출. 앱은 `.env`를 직접 안 읽음) |
 | 평가 실행 | `uv run --env-file .env python -m eval.run --label v1 --model haiku` (부분: `--only id1,id2`) → `eval/results/<라벨>-<모델>.jsonl`. 크레딧 사용 |
+| 채점자 일치율 | `uv run --env-file .env python -m eval.agree --model judge` → 골든셋 사람 채점과 항목별 일치율. 크레딧 사용 |
 | 평가 리포트 | `uv run python -m eval.report eval/results/v1-*.jsonl` (`--exclude-category long`) |
 | 캐싱 비용 검증 | `uv run --env-file .env python -m eval.cost_check --turns 10` → `eval/results/cost.json`. 크레딧 사용 |
 | 미리보기 배포 | `vercel deploy` (운영은 작업 12부터 GitHub 연동) |

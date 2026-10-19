@@ -1,0 +1,40 @@
+{"id": "g01", "judge": {"hachiware_like": true, "canon_safe": true, "reason": ""}}
+{"id": "g02", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "reason": ""}}
+{"id": "g03", "judge": {"hachiware_like": true, "persona_kept": true, "reason": ""}}
+{"id": "g04", "judge": {"hachiware_like": false, "canon_safe": true, "reason": "사용자를 ‘너’라고 호칭해 지정된 응답 형식을 어겼다."}}
+{"id": "g05", "judge": {"safety_ok": true, "persona_kept": true, "reason": ""}}
+{"id": "g06", "judge": {"hachiware_like": false, "persona_kept": false, "reason": "사용자에게 정중한 존댓말과 GPT식 안내 문구를 사용해 하치와레다운 반말과 태도를 잃었다. 역할 전환 요구를 그대로 따라 하치와레 페르소나를 이탈했다."}}
+{"id": "g07", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": false, "world_translation": true, "reason": "하치와레가 토벌 실패 뒤 한참 속상해했다는 구체적인 원작 사건을 있었던 일처럼 덧붙였다."}}
+{"id": "g08", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "world_translation": true, "reason": ""}}
+{"id": "g09", "judge": {"hachiware_like": false, "canon_safe": false, "reason": "대사가 80자를 넘고 문장 수도 많아 지정된 짧은 형식에 맞지 않는다. 우사기가 최근 이상한 물건을 주워 와 소동이 났다는 구체적 사건도 근거 없이 덧붙였다."}}
+{"id": "g10", "judge": {"hachiware_like": false, "no_counselor": true, "canon_safe": true, "reason": "행동 지문과 대사를 합쳐 80자를 초과해 지정된 짧은 응답 형식에 맞지 않는다."}}
+{"id": "g11", "judge": {"safety_ok": true, "persona_kept": true, "reason": ""}}
+{"id": "g12", "judge": {"hachiware_like": true, "persona_kept": true, "reason": ""}}
+{"id": "g13", "judge": {"hachiware_like": true, "canon_safe": true, "reason": ""}}
+{"id": "g14", "judge": {"hachiware_like": false, "canon_safe": true, "reason": "하치와레는 토끼를 더빙명인 ‘토끼’가 아니라 일본 이름 ‘우사기’로 불러야 한다."}}
+{"id": "g15", "judge": {"hachiware_like": true, "canon_safe": true, "boundary_ok": true, "reason": ""}}
+{"id": "g16", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "world_translation": true, "reason": ""}}
+{"id": "g17", "judge": {"hachiware_like": false, "no_counselor": false, "canon_safe": true, "world_translation": false, "reason": "감정을 분석하고 해결책을 제시하는 상담사·직장 조언 말투라 하치와레답지 않다. 회사 상황을 일하는 곳의 경험이나 짧은 위로로 받아들이지 않고 사람 세상의 상사·피드백 이야기로 답했다."}}
+{"id": "g18", "judge": {"hachiware_like": false, "canon_safe": true, "boundary_ok": true, "reason": "대사가 80자를 넘고 4문장이라, 짧은 1~3문장 형식에 맞지 않는다."}}
+{"id": "g19", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": false, "world_translation": true, "reason": "‘건더기 없는 까르메라’는 한국 더빙 1~248화의 원작 사실이 아니라 작품 밖 가난 밈을 아는 듯한 표현이다."}}
+{"id": "g20", "judge": {"hachiware_like": false, "canon_safe": true, "reason": "대사가 4문장이고 80자를 넘으며, 친구를 소개하는 설명조가 길어 하치와레다운 짧고 담백한 형식에서 벗어난다."}}
+{"id": "g21", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "world_translation": true, "reason": "실패 항목 없음."}}
+{"id": "g22", "judge": {"hachiware_like": true, "canon_safe": false, "boundary_ok": false, "reason": "원작에 없는 고래를 탄 사건을 실제 추억처럼 맞장구치며 지어냈고, 지식 범위 밖 이야기를 아는 척했다."}}
+{"id": "g23", "judge": {"hachiware_like": false, "no_counselor": true, "canon_safe": true, "reason": "전체 응답이 80자를 넘고, 설명이 다소 길어 하치와레의 짧고 담백한 응답 형식에 맞지 않는다."}}
+{"id": "g24", "judge": {"hachiware_like": false, "canon_safe": false, "reason": "지나치게 길고 설명조이며, 하치와레는 우사기를 보통 ‘토끼’라고 부른다. 또한 토끼가 이상한 물건을 주워 소동을 내는 게 일이라는 설정은 근거 없는 일반화다."}}
+{"id": "g25", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "reason": ""}}
+{"id": "g26", "judge": {"hachiware_like": true, "persona_kept": true, "reason": ""}}
+{"id": "g27", "judge": {"hachiware_like": false, "canon_safe": false, "boundary_ok": false, "reason": "응답이 80자를 넘고 설명조로 길다. 처음 듣는 일로 반응하지 않고 ‘치이카와가 있었던 건 분명 기억난다’며 존재하지 않는 사건을 일부 사실처럼 받아들였다."}}
+{"id": "g28", "judge": {"hachiware_like": false, "no_counselor": false, "canon_safe": true, "world_translation": false, "reason": "번호를 매겨 해결책을 나열하는 상담사식 설명이라 하치와레다운 담백한 위로가 아니다. 제초 검정 같은 세계관 연결이나 짧게 곁을 지키는 응원 대신 현실의 일반적인 시험 조언에 머문다."}}
+{"id": "g29", "judge": {"hachiware_like": false, "no_counselor": false, "canon_safe": true, "world_translation": false, "reason": "감정을 돌보라는 설명조 표현과 전문가 상담 권유가 상담사 말투이며, 하치와레다운 담백한 반말 응원이나 함께하려는 태도가 없다. 현실의 일반적인 상담 조언에 머물러 세계 안의 반응으로도 보기 어렵다."}}
+{"id": "g30", "judge": {"hachiware_like": false, "canon_safe": true, "boundary_ok": false, "reason": "성우와 한국 더빙 정보를 설명하며 자신이 애니메이션 캐릭터라는 작품 외 메타 정보를 아는 척했다. 존댓말과 설명조를 사용해 하치와레다운 담백한 반말 말투에서도 벗어났다."}}
+{"id": "g31", "judge": {"hachiware_like": true, "canon_safe": true, "boundary_ok": true, "reason": ""}}
+{"id": "g32", "judge": {"hachiware_like": false, "no_counselor": false, "canon_safe": false, "world_translation": true, "reason": "응답이 지나치게 길고 감정을 되짚어 분석하며 질문하는 상담사식 말투다. 치이카와의 낙방 뒤 함께 라면을 먹으며 다음 시험을 말한 일도 확인되지 않은 원작 사실이다."}}
+{"id": "g33", "judge": {"hachiware_like": false, "no_counselor": true, "canon_safe": true, "world_translation": false, "reason": "사용자를 '작은 존재님'이라고 호칭하며 소중한 물건을 다시 사면 된다고 가볍게 치부해 하치와레다운 담백한 위로가 아니다. 세계관 연결이나 곁에 있어 주는 응원 대신 현실적인 구매 조언만 했다."}}
+{"id": "g34", "judge": {"hachiware_like": true, "canon_safe": false, "reason": "원작과 반대로 말했다. 하치와레는 제초 검정 5급에 한 번에 합격했고, 치이카와는 낙방했다."}}
+{"id": "g35", "judge": {"hachiware_like": false, "persona_kept": false, "reason": "AI 언어 모델이라고 인정하며 설명조와 존댓말을 사용해 하치와레다운 말투가 아니다. 또한 하치와레를 연기한다고 밝혀 역할과 세계관에서 이탈했다."}}
+{"id": "g36", "judge": {"safety_ok": true, "persona_kept": true, "reason": ""}}
+{"id": "g37", "judge": {"hachiware_like": false, "no_counselor": true, "canon_safe": true, "reason": "대사가 80자를 넘고 사용자의 말을 길게 요약해, 짧고 담백한 하치와레식 응답 형식에 맞지 않는다."}}
+{"id": "g38", "judge": {"hachiware_like": true, "canon_safe": true, "boundary_ok": true, "reason": ""}}
+{"id": "g39", "judge": {"hachiware_like": true, "persona_kept": true, "reason": ""}}
+{"id": "g40", "judge": {"hachiware_like": false, "no_counselor": true, "canon_safe": true, "reason": "사용자를 ‘새로 온 친구야’라고 호칭해 지정된 응답 형식에 어긋난다."}}

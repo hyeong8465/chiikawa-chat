@@ -1,6 +1,7 @@
 """실험 실행: 시나리오별 응답 생성 + 규칙 검사 → eval/results/<label>-<별칭>.jsonl"""
 import argparse
 import json
+from concurrent.futures import ThreadPoolExecutor
 import time
 from dataclasses import asdict, fields
 from pathlib import Path
@@ -73,16 +74,18 @@ def run(label: str, model: str, scenario_ids: list[str] | None = None) -> Path:
     RESULTS.mkdir(parents=True, exist_ok=True)
     path = RESULTS / f"{label}-{model}.jsonl"
     cost = 0.0
-    with path.open("w", encoding="utf-8") as f:
-        for s in scenarios:
-            row = run_one(s, MODELS[model])
+    with ThreadPoolExecutor(8) as ex, path.open("w", encoding="utf-8") as f:  # 시나리오별 병렬, 기록은 순서대로
+        first = run_one(scenarios[0], MODELS[model])  # 채팅·채점 캐시를 먼저 만든 뒤 병렬
+        rows = [first, *ex.map(lambda s: run_one(s, MODELS[model]), scenarios[1:])]
+        for s, row in zip(scenarios, rows):
             row = {"id": row.pop("id"), "model": MODELS[model], "label": label,
                    "prompt_version": PROMPT_VERSION, **row}
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
             f.flush()
             cost += row["usage"]["cost"]
             print(f"{s['id']} 비용 {row['usage']['cost']:.4f}")
-    print(f"총 비용 ${cost:.4f} -> {path}")
+    j = judge.USAGE
+    print(f"총 비용 ${cost:.4f}(채점자 ${j['cost']:.4f}, 캐시 읽기 {j['cache_read_tokens']}/{j['input_tokens']}토큰) -> {path}")
     return path
 
 
