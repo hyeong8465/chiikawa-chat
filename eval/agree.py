@@ -44,8 +44,9 @@ def main(alias: str) -> None:
         except Exception as e:  # 한 개 실패가 전체를 멈추지 않게
             return {"error": f"{type(e).__name__}: {e}"}
 
+    first = one(golden[0])  # 먼저 하나 보내 캐시를 만든 뒤 병렬(동시에 보내면 전부 캐시 미스)
     with ThreadPoolExecutor(WORKERS) as ex:
-        results = list(ex.map(one, golden))
+        results = [first, *ex.map(one, golden[1:])]
     machine = {}
     with path.open("w", encoding="utf-8") as f:
         for g, res in zip(golden, results):
