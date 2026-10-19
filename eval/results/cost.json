@@ -1,0 +1,216 @@
+{
+  "model": "anthropic/claude-sonnet-5.5",
+  "totals": {
+    "none": {
+      "input": 232266,
+      "cache_read": 0,
+      "cache_write": 0,
+      "cost": 0.471732
+    },
+    "system": {
+      "input": 232702,
+      "cache_read": 205083,
+      "cache_write": 22787,
+      "cost": 0.0957798
+    },
+    "full": {
+      "input": 232797,
+      "cache_read": 231835,
+      "cache_write": 922,
+      "cost": 0.0334585
+    }
+  },
+  "turns": {
+    "none": [
+      {
+        "input": 22809,
+        "cache_read": 0,
+        "cache_write": 0,
+        "cost": 0.046378
+      },
+      {
+        "input": 22902,
+        "cache_read": 0,
+        "cache_write": 0,
+        "cost": 0.046604
+      },
+      {
+        "input": 23003,
+        "cache_read": 0,
+        "cache_write": 0,
+        "cost": 0.046626
+      },
+      {
+        "input": 23084,
+        "cache_read": 0,
+        "cache_write": 0,
+        "cost": 0.046898
+      },
+      {
+        "input": 23180,
+        "cache_read": 0,
+        "cache_write": 0,
+        "cost": 0.04709
+      },
+      {
+        "input": 23270,
+        "cache_read": 0,
+        "cache_write": 0,
+        "cost": 0.04725
+      },
+      {
+        "input": 23357,
+        "cache_read": 0,
+        "cache_write": 0,
+        "cost": 0.047454
+      },
+      {
+        "input": 23458,
+        "cache_read": 0,
+        "cache_write": 0,
+        "cost": 0.047776
+      },
+      {
+        "input": 23555,
+        "cache_read": 0,
+        "cache_write": 0,
+        "cost": 0.04779
+      },
+      {
+        "input": 23648,
+        "cache_read": 0,
+        "cache_write": 0,
+        "cost": 0.047866
+      }
+    ],
+    "system": [
+      {
+        "input": 22809,
+        "cache_read": 0,
+        "cache_write": 22787,
+        "cost": 0.0581515
+      },
+      {
+        "input": 22940,
+        "cache_read": 22787,
+        "cache_write": 0,
+        "cost": 0.0033047
+      },
+      {
+        "input": 23033,
+        "cache_read": 22787,
+        "cache_write": 0,
+        "cost": 0.0034007
+      },
+      {
+        "input": 23115,
+        "cache_read": 22787,
+        "cache_write": 0,
+        "cost": 0.0036147
+      },
+      {
+        "input": 23206,
+        "cache_read": 22787,
+        "cache_write": 0,
+        "cost": 0.0041467
+      },
+      {
+        "input": 23326,
+        "cache_read": 22787,
+        "cache_write": 0,
+        "cost": 0.0041067
+      },
+      {
+        "input": 23417,
+        "cache_read": 22787,
+        "cache_write": 0,
+        "cost": 0.0043587
+      },
+      {
+        "input": 23526,
+        "cache_read": 22787,
+        "cache_write": 0,
+        "cost": 0.0054067
+      },
+      {
+        "input": 23617,
+        "cache_read": 22787,
+        "cache_write": 0,
+        "cost": 0.0046487
+      },
+      {
+        "input": 23713,
+        "cache_read": 22787,
+        "cache_write": 0,
+        "cost": 0.0046407
+      }
+    ],
+    "full": [
+      {
+        "input": 22809,
+        "cache_read": 22787,
+        "cache_write": 18,
+        "cost": 0.0034217
+      },
+      {
+        "input": 22935,
+        "cache_read": 22805,
+        "cache_write": 126,
+        "cost": 0.0034635
+      },
+      {
+        "input": 23042,
+        "cache_read": 22931,
+        "cache_write": 107,
+        "cost": 0.0032986
+      },
+      {
+        "input": 23134,
+        "cache_read": 23038,
+        "cache_write": 92,
+        "cost": 0.0033018
+      },
+      {
+        "input": 23233,
+        "cache_read": 23130,
+        "cache_write": 99,
+        "cost": 0.0033685
+      },
+      {
+        "input": 23330,
+        "cache_read": 23229,
+        "cache_write": 97,
+        "cost": 0.0034234
+      },
+      {
+        "input": 23431,
+        "cache_read": 23326,
+        "cache_write": 101,
+        "cost": 0.0033631
+      },
+      {
+        "input": 23535,
+        "cache_read": 23427,
+        "cache_write": 104,
+        "cost": 0.0035007
+      },
+      {
+        "input": 23635,
+        "cache_read": 23531,
+        "cache_write": 100,
+        "cost": 0.0031411
+      },
+      {
+        "input": 23713,
+        "cache_read": 23631,
+        "cache_write": 78,
+        "cost": 0.0031761
+      }
+    ]
+  },
+  "savings": {
+    "system": 0.7969614102922846,
+    "full": 0.929073075390264
+  },
+  "ok": true
+}
