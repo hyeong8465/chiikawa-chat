@@ -63,6 +63,14 @@ def test_checklist_selects_items_and_fills(prompts, monkeypatch):
     assert calls[0][1] == judge.JUDGE_MODEL
 
 
+def test_usage_accumulates(prompts, monkeypatch):
+    monkeypatch.setattr(judge, "USAGE", {k: 0 for k in judge.USAGE})
+    out = {i: True for i in judge.ITEMS}
+    calls = fake(monkeypatch, [json.dumps(out)] * 2)
+    judge.checklist(S, "a"), judge.checklist(S, "b", model="m")
+    assert judge.USAGE["cost"] == 1.0 and calls[1][1] == "m"
+
+
 def test_fill_leaves_braces():
     assert judge.fill('{a} {"k": 1} {b}', a="1", b="2") == '1 {"k": 1} 2'
 
@@ -113,3 +121,10 @@ def test_run_only_and_long(monkeypatch, tmp_path, prompts):
     (l,) = read(run.run("v1", "haiku", ["l"]))
     assert l["turns"] == ["첫", "둘"] and len(l["responses"]) == 2
     assert l["usage"]["cost"] == 0.25 * 2 + 0.5 * 2
+
+
+def test_agree_table_directions():
+    from eval.agree import table
+    h = {("g1", "canon_safe"): True, ("g2", "canon_safe"): False, ("g3", "canon_safe"): True}
+    m = {("g1", "canon_safe"): False, ("g2", "canon_safe"): True, ("g3", "canon_safe"): True}
+    assert "| canon_safe | 1/3 | 1 | 1 |" in table(h, m)

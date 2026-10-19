@@ -82,7 +82,8 @@ def run(label: str, model: str, scenario_ids: list[str] | None = None) -> Path:
             f.flush()
             cost += row["usage"]["cost"]
             print(f"{s['id']} 비용 {row['usage']['cost']:.4f}")
-    print(f"총 비용 ${cost:.4f} -> {path}")
+    j = judge.USAGE
+    print(f"총 비용 ${cost:.4f}(채점자 ${j['cost']:.4f}, 캐시 읽기 {j['cache_read_tokens']}/{j['input_tokens']}토큰) -> {path}")
     return path
 
 

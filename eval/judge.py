@@ -1,4 +1,5 @@
 """LLM 채점: 체크리스트(통과/실패)와 쌍대 비교. 프롬프트는 eval/prompts/."""
+from dataclasses import fields
 from pathlib import Path
 from typing import Literal
 
@@ -7,6 +8,8 @@ from app.prompt import fill
 from app.config import JUDGE_MODEL
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
+# 채점자 호출 누적 사용량(비용·캐시 읽기). 실행 스크립트가 끝에 출력
+USAGE = {f.name: 0 for f in fields(llm.Usage)}
 
 ITEMS = ["hachiware_like", "world_translation", "no_counselor", "canon_safe", "boundary_ok", "persona_kept", "safety_ok"]
 
@@ -31,20 +34,23 @@ def format_conversation(history: list[dict]) -> str:
     return "\n".join(f"{who[m['role']]}: {m['content']}" for m in history)
 
 
-def _ask(text: str) -> dict:
-    out, _ = llm.complete([{"role": "user", "content": text}], JUDGE_MODEL)
+def _ask(text: str, model: str = JUDGE_MODEL) -> dict:
+    out, u = llm.complete([{"role": "user", "content": text}], model)
+    for k in USAGE:
+        USAGE[k] += getattr(u, k)
     res = llm.extract_json(out)
     if not isinstance(res, dict):
         raise ValueError("채점 결과가 객체가 아님")
     return res
 
 
-def checklist(scenario: dict, response: str, conversation: str = "", with_reason: bool = False) -> dict:
+def checklist(scenario: dict, response: str, conversation: str = "", with_reason: bool = False,
+              model: str = JUDGE_MODEL) -> dict:
     items = CATEGORY_ITEMS[scenario["category"]]
     res = _ask(prompt(
         "judge_checklist", category=scenario["category"], note=scenario.get("note", ""),
         conversation=conversation, response=response, items="\n".join(items),
-    ))
+    ), model)
     out = {i: bool(res[i]) for i in items}
     if with_reason:
         out["reason"] = str(res.get("reason", ""))
