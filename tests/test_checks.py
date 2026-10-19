@@ -14,6 +14,7 @@ def test_300_chars_fails(): assert not check("*끄덕* " + "가" * 301)["length"
 def test_ellipses_one_sentence(): assert check("*끄덕* 음……… 글쎄……")["length"]
 def test_tilde_bang_one_sentence(): assert check("*끄덕* 어떻게든 되어라~!")["length"]
 def test_counselor_phrase(): assert not check("*끄덕* 그런 감정을 느끼는 건 자연스러워.")["no_counselor"]
+def test_advice_phrase(): assert not check("*끄덕* 산책을 해 보는 건 어때?")["no_counselor"]
 def test_hotline_allowed(): assert check("자살예방상담전화 109에 전화해 줘.")["no_counselor"]
 def test_markdown(): assert not check("*끄덕*\n- 첫째\n- 둘째")["no_markdown"]
 def test_bold(): assert not check("*끄덕* **좋아**")["no_markdown"]
