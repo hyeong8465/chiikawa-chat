@@ -28,7 +28,7 @@ def fake(monkeypatch, outs):
     calls = []
     it = iter(outs)
 
-    def f(messages, model):
+    def f(messages, model, max_tokens=None):
         calls.append((messages, model))
         return next(it), Usage(1, 0, 0, 1, 0.5)
 
@@ -76,7 +76,7 @@ def test_fill_leaves_braces():
 
 
 def fake_stream(monkeypatch):
-    def f(messages, model):
+    def f(messages, model, max_tokens=None):
         yield "delta", "*끄덕* 응."
         yield "done", {"usage": Usage(10, 2, 0, 3, 0.25), "trace_id": "t"}
 

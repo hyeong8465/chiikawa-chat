@@ -58,7 +58,7 @@ def _usage(u) -> Usage:
     )
 
 
-def _kwargs(messages, model, chat: bool, trace_id: str) -> dict:
+def _kwargs(messages, model, chat: bool, trace_id: str, max_tokens: int | None = None) -> dict:
     extra = {"usage": {"include": True}}
     if model.startswith("anthropic/"):
         extra = {"provider": PROVIDER, **extra}
@@ -67,7 +67,7 @@ def _kwargs(messages, model, chat: bool, trace_id: str) -> dict:
     return {
         "model": model,
         "messages": messages,
-        "max_tokens": MAX_TOKENS_CHAT if chat else MAX_TOKENS_OTHER,
+        "max_tokens": max_tokens or (MAX_TOKENS_CHAT if chat else MAX_TOKENS_OTHER),
         "extra_body": extra,
         "trace_id": trace_id,
         "metadata": {"prompt_version": PROMPT_VERSION},
@@ -138,8 +138,8 @@ def stream_chat(messages: list[dict], model: str = CHAT_MODEL) -> Iterator[tuple
     yield "done", {"usage": _usage(usage), "trace_id": trace_id}
 
 
-def complete(messages: list[dict], model: str) -> tuple[str, Usage]:
-    res = _create(_kwargs(messages, model, False, uuid.uuid4().hex))
+def complete(messages: list[dict], model: str, max_tokens: int | None = None) -> tuple[str, Usage]:
+    res = _create(_kwargs(messages, model, False, uuid.uuid4().hex, max_tokens))
     _check_error(res)
     ch = (getattr(res, "choices", None) or [None])[0]
     if ch is None or getattr(ch, "finish_reason", None) == "error":

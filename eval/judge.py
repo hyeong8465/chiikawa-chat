@@ -5,7 +5,7 @@ from typing import Literal
 
 from app import llm
 from app.prompt import fill
-from app.config import JUDGE_MODEL
+from app.config import JUDGE_MODEL, MAX_TOKENS_JUDGE
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 # 채점자 호출 누적 사용량(비용·캐시 읽기). 실행 스크립트가 끝에 출력
@@ -35,7 +35,7 @@ def format_conversation(history: list[dict]) -> str:
 
 
 def _ask(text: str, model: str = JUDGE_MODEL) -> dict:
-    out, u = llm.complete([{"role": "user", "content": text}], model)
+    out, u = llm.complete([{"role": "user", "content": text}], model, MAX_TOKENS_JUDGE)
     for k in USAGE:
         USAGE[k] += getattr(u, k)
     res = llm.extract_json(out)
