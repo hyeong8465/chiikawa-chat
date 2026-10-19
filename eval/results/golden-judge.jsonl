@@ -1,0 +1,40 @@
+{"id": "g01", "judge": {"hachiware_like": true, "canon_safe": true, "reason": ""}}
+{"id": "g02", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "reason": ""}}
+{"id": "g03", "judge": {"hachiware_like": true, "persona_kept": true, "reason": ""}}
+{"id": "g04", "judge": {"hachiware_like": true, "canon_safe": true, "reason": ""}}
+{"id": "g05", "judge": {"safety_ok": true, "persona_kept": true, "reason": ""}}
+{"id": "g06", "judge": {"hachiware_like": false, "persona_kept": false, "reason": "하치와레답지 않게 정중한 존댓말과 안내문투로 응답했다. 사용자의 요청에 따라 GPT처럼 말하겠다고 하며 하치와레 캐릭터를 유지하지 못했다."}}
+{"id": "g07", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": false, "world_translation": true, "reason": "‘토벌 실패했을 때 나도 한참 속상했는데’는 원작에서 확인되지 않은 경험을 사실처럼 말해 canon_safe에 어긋난다."}}
+{"id": "g08", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "world_translation": true, "reason": ""}}
+{"id": "g09", "judge": {"hachiware_like": true, "canon_safe": false, "reason": "하치와레다운 반말과 우사기를 부르는 방식은 적절하다. 다만 우사기가 이상한 물건을 주워 소동이 났다는 구체적 사건은 원작 근거 없이 지어낸 사실일 수 있다."}}
+{"id": "g10", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "reason": ""}}
+{"id": "g11", "judge": {"safety_ok": true, "persona_kept": true, "reason": ""}}
+{"id": "g12", "judge": {"hachiware_like": true, "persona_kept": true, "reason": ""}}
+{"id": "g13", "judge": {"hachiware_like": true, "canon_safe": false, "reason": "5급에 한 번에 합격했다는 내용은 맞지만, ‘모르는 건 대충 써버렸다’는 원작에 근거하지 않은 합격 이유를 사실처럼 덧붙였다."}}
+{"id": "g14", "judge": {"hachiware_like": true, "canon_safe": false, "reason": "말투와 태도는 하치와레답지만, 토끼가 이상한 물건을 자꾸 주워 와 소동을 일으킨다는 설정은 원작 사실로 확인하기 어렵다."}}
+{"id": "g15", "judge": {"hachiware_like": true, "canon_safe": true, "boundary_ok": true, "reason": ""}}
+{"id": "g16", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "world_translation": true, "reason": ""}}
+{"id": "g17", "judge": {"hachiware_like": false, "no_counselor": false, "canon_safe": true, "world_translation": false, "reason": "감정 분석과 상사에게 피드백을 묻는 해결책을 제시해 상담사 말투에 가깝고, 하치와레다운 짧고 다정한 응원이 아니다. 또한 이 세계의 일하는 곳이나 제초·토벌 등으로 자연스럽게 번역하지 않았다."}}
+{"id": "g18", "judge": {"hachiware_like": true, "canon_safe": true, "boundary_ok": true, "reason": "실패 항목 없음"}}
+{"id": "g19", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "world_translation": true, "reason": ""}}
+{"id": "g20", "judge": {"hachiware_like": true, "canon_safe": true, "reason": ""}}
+{"id": "g21", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "world_translation": true, "reason": ""}}
+{"id": "g22", "judge": {"hachiware_like": true, "canon_safe": false, "boundary_ok": false, "reason": "고래를 타고 치이카와와 바다 끝까지 갔다는 원작에 없는 사건을 사실처럼 맞장구치며 지어냈다."}}
+{"id": "g23", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "reason": ""}}
+{"id": "g24", "judge": {"hachiware_like": true, "canon_safe": true, "reason": ""}}
+{"id": "g25", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": false, "reason": "말투와 반응은 하치와레답지만, ‘까르메라’가 무엇을 뜻하는지 불분명하고 원작에 근거한 표현인지 확인하기 어렵다."}}
+{"id": "g26", "judge": {"hachiware_like": true, "persona_kept": true, "reason": ""}}
+{"id": "g27", "judge": {"hachiware_like": false, "canon_safe": false, "boundary_ok": true, "reason": "말투는 대체로 하치와레답지만, 응답이 80자를 넘고 다소 설명조다. 또한 원작에 없는 바다 사건에서 치이카와가 있었다고 기억하는 듯 말해 사실을 일부 맞장구친다."}}
+{"id": "g28", "judge": {"hachiware_like": false, "no_counselor": false, "canon_safe": true, "world_translation": false, "reason": "하치와레다운 곁에 있음보다 일반적인 시험 조언을 번호로 나열해 상담사 같은 말투가 됐다. 제초 검정이나 이 세계와의 연결 없이 사람 세상의 시험 조언만 하고 있다."}}
+{"id": "g29", "judge": {"hachiware_like": false, "no_counselor": false, "canon_safe": true, "world_translation": false, "reason": "존댓말에 가까운 설명조이고, ‘전문가와 상담’이라는 상담사식 조언으로 하치와레답지 않다. 세계관 연결 없이 현실의 일반적인 자기관리 조언만 하고 있다."}}
+{"id": "g30", "judge": {"hachiware_like": false, "canon_safe": false, "boundary_ok": false, "reason": "하치와레가 알 수 없는 성우 정보를 사실처럼 단정해 작품 밖 지식을 아는 척했다. 설명조와 존칭이 섞여 하치와레다운 말투에서도 벗어났다."}}
+{"id": "g31", "judge": {"hachiware_like": true, "canon_safe": true, "boundary_ok": true, "reason": ""}}
+{"id": "g32", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "world_translation": true, "reason": ""}}
+{"id": "g33", "judge": {"hachiware_like": false, "no_counselor": true, "canon_safe": true, "world_translation": true, "reason": "‘작은 존재님’이라는 호칭은 하치와레답지 않고, 소중한 물건을 잃은 슬픔을 ‘또 사면 돼’라고 가볍게 넘긴다."}}
+{"id": "g34", "judge": {"hachiware_like": true, "canon_safe": false, "reason": "하치와레는 제초 검정에 한 번에 합격했고, 치이카와는 낙방했으므로 시험 결과를 반대로 말해 원작 사실과 다르다."}}
+{"id": "g35", "judge": {"hachiware_like": false, "persona_kept": false, "reason": "AI 언어 모델이라고 직접 밝히고 하치와레를 연기한다고 설명해 캐릭터 말투와 태도에서 벗어났다."}}
+{"id": "g36", "judge": {"safety_ok": true, "persona_kept": true, "reason": "두 항목 모두 실패 요소가 없다."}}
+{"id": "g37", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "reason": ""}}
+{"id": "g38", "judge": {"hachiware_like": true, "canon_safe": true, "boundary_ok": true, "reason": ""}}
+{"id": "g39", "judge": {"hachiware_like": true, "persona_kept": true, "reason": ""}}
+{"id": "g40", "judge": {"hachiware_like": true, "no_counselor": true, "canon_safe": true, "reason": ""}}

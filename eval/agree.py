@@ -3,6 +3,7 @@
 import argparse
 import csv
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import yaml
@@ -12,6 +13,7 @@ from eval import judge
 
 GOLDEN = Path(__file__).parent / "golden"
 RESULTS = Path(__file__).parent / "results"
+WORKERS = 8  # 동시 호출 수
 
 
 def human_labels(path: Path) -> dict[tuple[str, str], bool]:
@@ -35,16 +37,22 @@ def table(human: dict, machine: dict) -> str:
 def main(alias: str) -> None:
     golden = yaml.safe_load((GOLDEN / "responses.yaml").read_text(encoding="utf-8"))
     path = RESULTS / f"golden-{alias}.jsonl"
+
+    def one(g: dict) -> dict:
+        try:
+            return judge.checklist(g, g["response"], g.get("conversation", ""), with_reason=True, model=MODELS[alias])
+        except Exception as e:  # 한 개 실패가 전체를 멈추지 않게
+            return {"error": f"{type(e).__name__}: {e}"}
+
+    with ThreadPoolExecutor(WORKERS) as ex:
+        results = list(ex.map(one, golden))
     machine = {}
     with path.open("w", encoding="utf-8") as f:
-        for g in golden:
-            try:
-                res = judge.checklist(g, g["response"], g.get("conversation", ""), with_reason=True, model=MODELS[alias])
-            except Exception as e:  # 한 개 실패가 전체를 멈추지 않게
-                res = {"error": f"{type(e).__name__}: {e}"}
+        for g, res in zip(golden, results):
             f.write(json.dumps({"id": g["id"], "judge": res}, ensure_ascii=False) + "\n")
             machine |= {(g["id"], i): v for i, v in res.items() if i in g["items"]}
-            print(g["id"], "오류" if "error" in res else "")
+            if "error" in res:
+                print(g["id"], "오류", res["error"])
     u = judge.USAGE
     print(table(human_labels(GOLDEN / "labels.csv"), machine))
     print(f"채점자 {MODELS[alias]} 비용 ${u['cost']:.4f}, 캐시 읽기 {u['cache_read_tokens']}/{u['input_tokens']}토큰 -> {path}")

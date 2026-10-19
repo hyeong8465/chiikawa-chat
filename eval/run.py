@@ -1,6 +1,7 @@
 """실험 실행: 시나리오별 응답 생성 + 규칙 검사 → eval/results/<label>-<별칭>.jsonl"""
 import argparse
 import json
+from concurrent.futures import ThreadPoolExecutor
 import time
 from dataclasses import asdict, fields
 from pathlib import Path
@@ -73,9 +74,8 @@ def run(label: str, model: str, scenario_ids: list[str] | None = None) -> Path:
     RESULTS.mkdir(parents=True, exist_ok=True)
     path = RESULTS / f"{label}-{model}.jsonl"
     cost = 0.0
-    with path.open("w", encoding="utf-8") as f:
-        for s in scenarios:
-            row = run_one(s, MODELS[model])
+    with ThreadPoolExecutor(8) as ex, path.open("w", encoding="utf-8") as f:  # 시나리오별 병렬, 기록은 순서대로
+        for s, row in zip(scenarios, ex.map(lambda s: run_one(s, MODELS[model]), scenarios)):
             row = {"id": row.pop("id"), "model": MODELS[model], "label": label,
                    "prompt_version": PROMPT_VERSION, **row}
             f.write(json.dumps(row, ensure_ascii=False) + "\n")

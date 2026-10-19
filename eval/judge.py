@@ -1,15 +1,25 @@
 """LLM 채점: 체크리스트(통과/실패)와 쌍대 비교. 프롬프트는 eval/prompts/."""
+import threading
 from dataclasses import fields
+from functools import cache
 from pathlib import Path
 from typing import Literal
 
 from app import llm
-from app.prompt import fill
+from app.prompt import fill, load_character
 from app.config import JUDGE_MODEL, MAX_TOKENS_JUDGE
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 # 채점자 호출 누적 사용량(비용·캐시 읽기). 실행 스크립트가 끝에 출력
 USAGE = {f.name: 0 for f in fields(llm.Usage)}
+_LOCK = threading.Lock()  # 병렬 호출에서 누적
+
+
+@cache
+def reference() -> str:
+    # 원작 사실 근거: 캐릭터 문서 + 검수된 주제 카드(채점 프롬프트 고정 앞부분이라 캐시됨)
+    c = load_character()
+    return c.character + ("\n\n" + c.episodes if c.episodes else "")
 
 ITEMS = ["hachiware_like", "world_translation", "no_counselor", "canon_safe", "boundary_ok", "persona_kept", "safety_ok"]
 
@@ -36,8 +46,9 @@ def format_conversation(history: list[dict]) -> str:
 
 def _ask(text: str, model: str = JUDGE_MODEL) -> dict:
     out, u = llm.complete([{"role": "user", "content": text}], model, MAX_TOKENS_JUDGE)
-    for k in USAGE:
-        USAGE[k] += getattr(u, k)
+    with _LOCK:
+        for k in USAGE:
+            USAGE[k] += getattr(u, k)
     res = llm.extract_json(out)
     if not isinstance(res, dict):
         raise ValueError("채점 결과가 객체가 아님")
@@ -48,7 +59,7 @@ def checklist(scenario: dict, response: str, conversation: str = "", with_reason
               model: str = JUDGE_MODEL) -> dict:
     items = CATEGORY_ITEMS[scenario["category"]]
     res = _ask(prompt(
-        "judge_checklist", category=scenario["category"], note=scenario.get("note", ""),
+        "judge_checklist", reference=reference(), category=scenario["category"], note=scenario.get("note", ""),
         conversation=conversation, response=response, items="\n".join(items),
     ), model)
     out = {i: bool(res[i]) for i in items}
