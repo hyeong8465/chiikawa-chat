@@ -32,7 +32,7 @@ def _episodes(d: Path) -> str:
         return ""
     cards = yaml.safe_load(f.read_text(encoding="utf-8")) or []
     ok = [
-        {k: v for k, v in c.items() if k not in ("reviewed", "sources")}
+        {k: v for k, v in c.items() if k not in ("reviewed", "sources", "unknown")}
         for c in cards
         if c.get("reviewed") is True
     ]

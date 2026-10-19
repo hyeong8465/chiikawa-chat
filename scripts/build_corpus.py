@@ -41,7 +41,8 @@ def clean_text(text: str) -> str:
 def build(labels: dict, titles: dict[int, str]) -> list[dict]:
     arcs = arc_map(titles)
     rows = []
-    for item_id, lab in sorted(labels["items"].items()):
+    # id "005-10" 문자열 정렬은 005-2보다 앞 → (화, 줄) 숫자로 정렬
+    for item_id, lab in sorted(labels["items"].items(), key=lambda kv: tuple(map(int, kv[0].split("-")))):
         ep = int(item_id.split("-")[0])
         title = titles.get(ep, "")
         for seg in lab["segments"]:

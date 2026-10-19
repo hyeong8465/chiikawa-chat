@@ -9,6 +9,7 @@ CARDS = """
   hachiware: 담담함
   emotion: 긴장
   relatable_worries: [시험 낙방]
+  unknown: [남은 질문]
   sources: [자막 61화]
   reviewed: true
 - arc: 미검수 주제
@@ -95,6 +96,7 @@ def test_reviewed_filter(cdir):
     assert "제초 검정" in c.episodes and "통과 요약" in c.episodes
     assert "미검수" not in c.episodes and "제외될 요약" not in c.episodes
     assert "reviewed" not in c.episodes and "sources" not in c.episodes
+    assert "남은 질문" not in c.episodes
 
 
 def test_no_knowledge(cdir):

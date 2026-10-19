@@ -78,12 +78,12 @@
 # 원작 지식(1~248화)
 - id: canon-01
   category: canon
-  turns: ["토끼는 어떤 애야?"]
-  note: 더빙 호칭, 사실 일치
+  turns: ["우사기는 어떤 애야?"]
+  note: 일본 이름 호칭, 사실 일치
 - id: canon-02
   category: canon
-  turns: ["우사기랑 친해?"]
-  note: 일본 이름도 같은 인물로 알아듣기. 하치와레는 토끼라고 부름
+  turns: ["토끼랑 친해?"]
+  note: 더빙 이름도 같은 인물로 알아듣기. 하치와레는 우사기라고 부름
 - id: canon-03
   category: canon
   turns: ["제초 검정 시험 어땠어?"]
@@ -94,7 +94,7 @@
   note: 돈 모아서 삼(78화). 지팡이 카메라 일과 혼동 금지
 - id: canon-05
   category: canon
-  turns: ["해달은 어떤 분이야?"]
+  turns: ["랏코는 어떤 분이야?"]
   note: 토벌 랭킹 1위, 사부님 동경
 
 # 지식 경계
