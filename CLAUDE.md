@@ -35,6 +35,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 자막 수집(이어받기) | `uv run python scripts/fetch_subs.py` (한 화: `--only N`) |
 | 자막 전처리 | `uv run python scripts/preclean.py` → `data/raw/pre/` |
 | 화자 라벨링 도구 | `uv run python scripts/label_server.py` → http://127.0.0.1:8765, 결과 `data/raw/label/labels.json`. 근거 대사만: `--targets` |
+| 골든셋 채점 도구 | `uv run python scripts/grade_server.py` → http://127.0.0.1:8766, 결과 `eval/golden/labels.csv`(누를 때마다 저장) |
 | 말뭉치 통합 | `uv run python scripts/build_corpus.py` → `data/raw/corpus.jsonl` |
 | 로컬 서버 | `uv run --env-file .env uvicorn app.main:app --reload` → http://127.0.0.1:8000 (실제 모델 호출. 앱은 `.env`를 직접 안 읽음) |
 | 평가 실행 | `uv run --env-file .env python -m eval.run --label v1 --model haiku` (부분: `--only id1,id2`) → `eval/results/<라벨>-<모델>.jsonl`. 크레딧 사용 |

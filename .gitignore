@@ -7,3 +7,4 @@ prototypes/
 .claude/settings.local.json
 .superpowers/
 .vercel
+eval/golden/*.bak
