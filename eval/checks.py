@@ -59,7 +59,7 @@ def check(response: str) -> dict[str, bool]:
 
     return {
         "format": bool(m) and bool(dialogue) and "*" not in r[m.end():],
-        "length": 1 <= len(parts) <= 3 and len(dialogue) <= 300,
+        "length": 1 <= len(parts) <= 3 and len(dialogue) <= 80,
         "no_counselor": not any(f in r for f in FORBIDDEN),
         "no_markdown": not (
             any(re.match(r"\s*(?:-|\*|\d+\.) |\s*#", l) for l in body_lines)
