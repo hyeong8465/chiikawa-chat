@@ -64,6 +64,8 @@ def _kwargs(messages, model, chat: bool, trace_id: str, max_tokens: int | None =
         extra = {"provider": PROVIDER, **extra}
     if chat:
         extra["reasoning"] = REASONING
+    elif model.startswith("anthropic/"):
+        extra["reasoning"] = {"enabled": False}  # 기본 추론이 MAX_TOKENS_OTHER를 다 써서 빈 답·잘린 답이 옴
     return {
         "model": model,
         "messages": messages,
