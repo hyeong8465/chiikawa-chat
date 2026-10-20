@@ -32,7 +32,7 @@ FastAPI → prompt.build(messages)
 
 응답 완료 후
   POST /api/suggest {messages} → Haiku 5.5 → 추천 답변 3개(JSON)
-  POST /api/feedback {trace_id, 👍/👎} → Langfuse 점수
+  POST /api/feedback {trace_id, 1 / -1 / 0(취소)} → Langfuse 점수(응답당 1개, 같은 score_id로 덮어씀)
 ```
 
 ### 말투 변환기

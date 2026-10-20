@@ -192,6 +192,7 @@ def test_score_records_feedback(monkeypatch):
     monkeypatch.setattr(langfuse, "get_client", lambda: C())
     llm.score("t1", 1)
     assert seen["name"] == "feedback" and seen["trace_id"] == "t1" and seen["value"] == 1
+    assert seen["score_id"] == "t1-feedback"  # 바꾸거나 취소하면 덮어씀
 
 
 def test_score_ignores_errors(monkeypatch):

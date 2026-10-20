@@ -34,6 +34,19 @@ function split(text, streaming) {
   return ['', text];
 }
 
+// 지문 단어로 표정 고르기. 앞쪽 규칙 우선. 지문 없음 = 위기 응답 → 슬픔
+const FACES = [
+  ['joy', /반짝|살랑|웃|신나|폴짝|활짝/],
+  ['sad', /처지|처진|처졌|눈물|훌쩍|울먹/],
+  ['hesitate', /갸웃|머뭇|만지작|우물쭈물|망설/],
+  ['excite', /쫑긋|동그랗|두근|설레/],
+];
+function face(act) {
+  if (!act) return 'sad';
+  const f = FACES.find(([, re]) => re.test(act));
+  return f ? f[0] : 'base';
+}
+
 function el(tag, cls, text) {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -41,18 +54,21 @@ function el(tag, cls, text) {
   return e;
 }
 
-function hwRow(text, { streaming = false, m = null } = {}) {
+function hwRow(text, { streaming = false, m = null, last = false } = {}) {
   const row = el('div', 'row hw');
-  const b = el('div', 'bubble wobble2');
-  b.append($('head-svg').content.cloneNode(true));
-  if (!text) {
-    b.append(el('span', 'dots', '…'));
-  } else {
-    const [act, line] = split(text, streaming);
-    b.append(el('span', 'act', act && `*${act}*`), el('span', null, line));
+  let mood = 'base', act = '', line = '';
+  if (text) {
+    [act, line] = split(text, streaming);
+    if (line || !streaming) mood = face(act);  // 지문이 다 들어온 뒤에 표정 결정
   }
-  row.append(b);
-  if (m && m.trace_id) row.append(feedback(m));
+  const img = el('img', 'face');
+  img.src = `/static/face/${mood}.webp`;
+  img.alt = '';
+  const b = el('div', 'bubble');
+  b.append(text ? line : el('span', 'dots', '…'));
+  row.append(img, el('div', 'act', act), b);
+  if (last && m && m.trace_id) row.append(feedback(m));  // 👍👎는 마지막 응답에만
+  row.dataset.mood = mood;
   return row;
 }
 
@@ -71,8 +87,8 @@ function feedback(m) {
 }
 
 async function rate(m, val) {
-  if (m.fb === val) return;
-  m.fb = val;
+  val = m.fb === val ? 0 : val;  // 같은 걸 다시 누르면 취소
+  m.fb = val || undefined;
   save();
   render();
   try {
@@ -82,18 +98,21 @@ async function rate(m, val) {
 
 function render(streamText = null) {
   log.replaceChildren();
-  for (const m of msgs) {
+  msgs.forEach((m, i) => {
     if (m.role === 'user') {
       const row = el('div', 'row me');
-      row.append(el('div', 'bubble wobble', m.content));
+      row.append(el('div', 'bubble', m.content));
       log.append(row);
     } else {
-      log.append(hwRow(m.content, { m }));
+      log.append(hwRow(m.content, { m, last: i === msgs.length - 1 }));
     }
-  }
+  });
   if (streamText !== null) log.append(hwRow(streamText, { streaming: true }));
   if (errorText) log.append(hwRow(errorText));
-  log.scrollTop = log.scrollHeight;
+  const rows = log.querySelectorAll('.row.hw');
+  if (rows.length) $('top-face').src = `/static/face/${rows[rows.length - 1].dataset.mood}.webp`;  // 상단 얼굴 = 최근 표정
+  fit(log);
+  $('scroller').scrollTop = $('scroller').scrollHeight;
   const off = busy || dead;
   input.disabled = off;
   sendBtn.disabled = off;
@@ -101,10 +120,27 @@ function render(streamText = null) {
   if (dead) input.placeholder = '지금은 얘기할 수 없어요';
 }
 
+// 여러 줄 말풍선은 최대 폭까지 늘어나 오른쪽이 빔 → 실제 줄 폭에 맞춰 줄임
+// ponytail: 그릴 때마다 전체 말풍선을 잼. 대화가 아주 길어 느려지면 마지막 것만
+function fit(root) {
+  for (const b of root.querySelectorAll('.bubble')) {
+    b.style.width = '';
+    const r = document.createRange();
+    r.selectNodeContents(b);
+    const rects = [...r.getClientRects()];
+    if (rects.length < 2) continue;
+    const w = Math.max(...rects.map((x) => x.right)) - Math.min(...rects.map((x) => x.left));
+    const cs = getComputedStyle(b);
+    b.style.width = `${Math.ceil(w + parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight) + parseFloat(cs.borderLeftWidth) + parseFloat(cs.borderRightWidth))}px`;
+  }
+}
+addEventListener('resize', () => fit(log));
+document.fonts?.ready.then(() => fit(log));  // 웹폰트가 늦게 오면 폭이 바뀜
+
 function setChips(list) {
   chips.replaceChildren();
   for (const s of list) {
-    const b = el('button', 'wobble', s);
+    const b = el('button', null, s);
     b.type = 'button';
     b.onclick = () => send(s);
     chips.append(b);
@@ -213,14 +249,12 @@ async function send(text) {
 
 $('form').onsubmit = (e) => { e.preventDefault(); send(input.value); };
 
-for (const [tab, panel, other, otherPanel] of [['tab-chat', 'chat', 'tab-tone', 'tone'], ['tab-tone', 'tone', 'tab-chat', 'chat']]) {
-  $(tab).onclick = () => {
-    $(tab).setAttribute('aria-selected', 'true');
-    $(other).setAttribute('aria-selected', 'false');
-    $(panel).hidden = false;
-    $(otherPanel).hidden = true;
-  };
-}
+$('mode').onclick = () => {
+  const tone = $('tone').hidden;  // 지금 대화면 → 말투 변환으로
+  $('tone').hidden = !tone;
+  $('chat').hidden = tone;
+  $('mode').textContent = tone ? '대화로' : '말투 변환';
+};
 
 // 말투 변환
 const toneIn = $('tone-input'), toneOut = $('tone-out'), toneGo = $('tone-go');
@@ -228,13 +262,13 @@ toneIn.oninput = () => { $('tone-count').textContent = `${toneIn.value.length}/2
 
 function toneCard(title, text) {
   const c = document.createElement('div');
-  c.className = 'card wobble';
+  c.className = 'card';
   const h = document.createElement('h2'); h.textContent = title;
   const p = document.createElement('p'); p.textContent = text;
   c.append(h, p);
   if (title !== '하치와레') {
     const b = document.createElement('button');
-    b.type = 'button'; b.className = 'wobble2'; b.textContent = '복사';
+    b.type = 'button'; b.textContent = '복사';
     b.onclick = async () => {
       try { await navigator.clipboard.writeText(text); b.textContent = '복사했어요'; }
       catch { b.textContent = '복사 안 됨'; }

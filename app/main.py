@@ -176,7 +176,7 @@ async def feedback(request: Request):
     val = body.get("value") if isinstance(body, dict) else None
     if not isinstance(tid, str) or not re.fullmatch(r"[0-9a-f]{32}", tid):  # 서버가 만든 uuid4().hex 형식만
         return _bad("invalid")
-    if type(val) is not int or val not in (1, -1):
+    if type(val) is not int or val not in (1, -1, 0):  # 0 = 취소
         return _bad("invalid")
     score(tid, val)
     return Response(status_code=204)

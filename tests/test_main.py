@@ -201,9 +201,12 @@ def test_feedback_204(client, monkeypatch):
     monkeypatch.setattr(app.main, "score", lambda t, v: seen.append((t, v)))
     assert fb(client, {"trace_id": "a" * 32, "value": -1}).status_code == 204
     assert seen == [("a" * 32, -1)]
+    assert fb(client, {"trace_id": "a" * 32, "value": 0}).status_code == 204  # 취소
+    assert seen[-1] == ("a" * 32, 0)
 
 
 @pytest.mark.parametrize("body", [
+    {"trace_id": "a" * 32, "value": 2},
     {"trace_id": "abc", "value": 0},
     {"trace_id": "abc", "value": True},
     {"trace_id": "abc", "value": "1"},
