@@ -44,8 +44,16 @@ def format_conversation(history: list[dict]) -> str:
     return "\n".join(f"{who[m['role']]}: {m['content']}" for m in history)
 
 
+def _messages(text: str) -> list[dict]:
+    # "===" 위 고정 부분은 system, 아래는 user. 한 메시지에 몰면 OpenRouter가 요청마다 다른 곳으로 보내 캐시가 안 걸림
+    fixed, sep, rest = text.partition("\n===\n")
+    if not sep:
+        return [{"role": "user", "content": text}]
+    return [{"role": "system", "content": fixed}, {"role": "user", "content": rest}]
+
+
 def _ask(text: str, model: str = JUDGE_MODEL) -> dict:
-    out, u = llm.complete([{"role": "user", "content": text}], model, MAX_TOKENS_JUDGE)
+    out, u = llm.complete(_messages(text), model, MAX_TOKENS_JUDGE)
     with _LOCK:
         for k in USAGE:
             USAGE[k] += getattr(u, k)
