@@ -58,11 +58,11 @@ def _usage(u) -> Usage:
     )
 
 
-def _kwargs(messages, model, chat: bool, trace_id: str, max_tokens: int | None = None) -> dict:
+def _kwargs(messages, model, chat: bool, trace_id: str, max_tokens: int | None = None, reasoning: bool = False) -> dict:
     extra = {"usage": {"include": True}}
     if model.startswith("anthropic/"):
         extra = {"provider": PROVIDER, **extra}
-    if chat:
+    if chat or reasoning:
         extra["reasoning"] = REASONING
     elif model.startswith("anthropic/"):
         extra["reasoning"] = {"enabled": False}  # 기본 추론이 MAX_TOKENS_OTHER를 다 써서 빈 답·잘린 답이 옴
@@ -140,8 +140,8 @@ def stream_chat(messages: list[dict], model: str = CHAT_MODEL) -> Iterator[tuple
     yield "done", {"usage": _usage(usage), "trace_id": trace_id}
 
 
-def complete(messages: list[dict], model: str, max_tokens: int | None = None) -> tuple[str, Usage]:
-    res = _create(_kwargs(messages, model, False, uuid.uuid4().hex, max_tokens))
+def complete(messages: list[dict], model: str, max_tokens: int | None = None, reasoning: bool = False) -> tuple[str, Usage]:
+    res = _create(_kwargs(messages, model, False, uuid.uuid4().hex, max_tokens, reasoning))
     _check_error(res)
     ch = (getattr(res, "choices", None) or [None])[0]
     if ch is None or getattr(ch, "finish_reason", None) == "error":
