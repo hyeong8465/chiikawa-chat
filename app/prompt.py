@@ -84,9 +84,16 @@ def build_messages(
     return [{"role": "system", "content": system}, *msgs]
 
 
+# 대화에만 맞는 줄(위로·되묻기·원작 대사 인용). 변환기에 넣으면 "라면 먹자" 같은 말이 끼어듦
+CHAT_ONLY = ("- 원작 대사는", "- 위로는", "- 상대가 머뭇거리거나")
+
+
 def speech_rules(c: Character) -> str:
+    # 말투 변환기용: character.md "## 말투" 절에서 대화 전용 줄을 뺀 것
     m = re.search(r"^## 말투[^\n]*\n(.*?)(?=^## |\Z)", c.character, re.M | re.S)
-    return m.group(1).strip() if m else ""
+    if not m:
+        return ""
+    return "\n".join(l for l in m.group(1).strip().splitlines() if not l.startswith(CHAT_ONLY))
 
 
 def fill(template: str, **values: str) -> str:

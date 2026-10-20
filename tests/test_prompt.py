@@ -116,6 +116,11 @@ def test_speech_rules(cdir):
     assert "관계 내용" not in speech_rules(load_character(cdir))
 
 
+def test_speech_rules_drops_chat_only():
+    rules = speech_rules(load_character())
+    assert "짧게 말한다" in rules and "위로는" not in rules and "원작 대사는" not in rules and "머뭇거리거나" not in rules
+
+
 def test_speech_rules_missing(cdir):
     (cdir / "character.md").write_text("CHARACTER")
     assert speech_rules(load_character(cdir)) == ""

@@ -27,6 +27,7 @@ MAX_TOTAL_CHARS = 60000  # 요청 하나의 글자 수 합계. 위조 대화로 
 # 출력 상한. 채팅은 reasoning 토큰도 포함되므로 넉넉히
 MAX_TOKENS_CHAT = 1024
 MAX_TOKENS_OTHER = 400
+MAX_TOKENS_CONVERT = 2000  # 변환기는 추론 켬(사용자 결정). 추론 토큰도 여기서 씀
 MAX_TOKENS_JUDGE = 4000  # GPT 채점자는 추론 토큰도 여기서 씀. 400이면 추론만 하다 JSON 없이 끝남
 
 

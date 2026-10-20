@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response, StreamingRes
 from fastapi.staticfiles import StaticFiles
 
 from app import messages
-from app.config import CHAT_MODEL, MAX_TOTAL_CHARS, MAX_ASSISTANT_CHARS, MAX_INPUT_CHARS, MAX_MESSAGES, SUGGEST_MODEL
+from app.config import CHAT_MODEL, MAX_TOKENS_CONVERT, MAX_TOTAL_CHARS, MAX_ASSISTANT_CHARS, MAX_INPUT_CHARS, MAX_MESSAGES, SUGGEST_MODEL
 from app.llm import CreditExhausted, complete, extract_json, score, stream_chat
 from app.prompt import build_messages, fill, load_character, speech_rules
 
@@ -157,7 +157,7 @@ async def convert(request: Request):
     safe = text.replace("<", "＜").replace(">", "＞")  # </text>로 태그를 닫고 지시를 끼워 넣는 것 방지
     prompt = fill(fill(tpl, speech_rules=rules), text=safe)  # 규칙 먼저: 사용자 입력 속 자리표시 재치환 방지
     try:
-        out, _ = complete([{"role": "user", "content": prompt}], CHAT_MODEL)
+        out, _ = complete([{"role": "user", "content": prompt}], CHAT_MODEL, MAX_TOKENS_CONVERT, reasoning=True)
         return _parse_convert(out)
     except CreditExhausted:
         return JSONResponse({"code": "credit", "message": messages.CREDIT_EXHAUSTED}, status_code=502)
