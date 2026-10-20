@@ -92,10 +92,12 @@ def test_provider_only_for_anthropic(monkeypatch):
         "id": "x", "object": "chat.completion", "created": 0, "model": "m", "usage": USAGE,
         "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": "ok"}}],
     })
-    reqs = install(monkeypatch, res)
+    reqs = install(monkeypatch, res, res)
     text, u = complete(MSGS, model="openai/gpt-5.6-luna")
     assert text == "ok" and u.output_tokens == 7
     assert "provider" not in reqs[0] and "reasoning" not in reqs[0]
+    complete(MSGS, model="anthropic/claude-haiku-5.5")
+    assert reqs[1]["reasoning"] == {"enabled": False}
 
 
 def test_402_raises_credit_exhausted(monkeypatch):
