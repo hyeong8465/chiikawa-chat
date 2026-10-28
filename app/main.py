@@ -130,7 +130,7 @@ def _parse_convert(text: str) -> dict:
     out = extract_json(text)
     if not isinstance(out, dict):
         raise ValueError("dict 아님")
-    keys = ("intent", "twist") if "refused" not in out else ("refused",)
+    keys = ("intent",) if "refused" not in out else ("refused",)
     res = {}
     for k in keys:
         v = out.get(k)

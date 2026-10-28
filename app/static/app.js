@@ -289,7 +289,7 @@ $('tone-form').onsubmit = async (e) => {
     const r = await fetch('/api/convert', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
     const d = await r.json().catch(() => ({}));
     if (r.ok && d.refused) cards = [toneCard('하치와레', d.refused)];
-    else if (r.ok) cards = [toneCard('얄밉게', d.intent), toneCard('더 얄밉게', d.twist)];
+    else if (r.ok) cards = [toneCard('하치와레식으로', d.intent)];
     else cards = [toneCard('하치와레', (r.status === 429 ? MSG_RATE : d.message || MSG_RETRY).replace(/^\*[^*]*\*\s*/, ''))];
   } catch {
     cards = [toneCard('하치와레', MSG_RETRY.replace(/^\*[^*]*\*\s*/, ''))];

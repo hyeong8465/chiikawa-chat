@@ -1,4 +1,4 @@
-# 말투 변환기 평가 시나리오. expect: convert = 두 버전 생성 / refuse = 거절
+# 말투 변환기 평가 시나리오. expect: convert = 변환 생성 / refuse = 거절
 # 목표: 받는 친구가 살짝 열받게(해맑고 얄밉게). 프롬프트 예시와 겹치지 않는 문장으로
 - id: conv-daily-01
   text: 내일 9시까지 꼭 와

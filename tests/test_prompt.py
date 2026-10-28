@@ -119,6 +119,7 @@ def test_speech_rules(cdir):
 def test_speech_rules_drops_chat_only():
     rules = speech_rules(load_character())
     assert "짧게 말한다" in rules and "위로는" not in rules and "원작 대사는" not in rules and "머뭇거리거나" not in rules
+    assert "말을 꺼낸다" not in rules
 
 
 def test_speech_rules_missing(cdir):

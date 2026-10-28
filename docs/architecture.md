@@ -38,7 +38,7 @@ FastAPI → prompt.build(messages)
 ### 말투 변환기
 
 ```
-POST /api/convert {text} → 말투 규칙 + 변환 지시 → 1회 호출 → {intent, twist}
+POST /api/convert {text} → 말투 규칙 + 변환 지시 → 1회 호출 → {intent}
 ```
 
 ## 프롬프트

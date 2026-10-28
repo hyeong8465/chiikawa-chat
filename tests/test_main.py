@@ -252,11 +252,11 @@ def conv_fake(text=None, exc=None, seen=None):
     return f
 
 
-def test_convert_returns_both(client, monkeypatch):
+def test_convert_returns_intent(client, monkeypatch):
     seen = {}
     monkeypatch.setattr(app.main, "complete", conv_fake('{"intent":"나와줄래…","twist":"자버리자"}', seen=seen))
     r = convert(client)
-    assert r.json() == {"intent": "나와줄래…", "twist": "자버리자"}
+    assert r.json() == {"intent": "나와줄래…"}
     assert seen["model"] == app.main.CHAT_MODEL
 
 
@@ -277,8 +277,8 @@ def test_convert_empty_invalid(client, t):
 
 
 @pytest.mark.parametrize("out", [
-    "죄송해요", '{"intent":"a"}', '{"intent":"a","twist":""}', '{"intent":"a","twist":1}',
-    '{"intent":"a","twist":"' + "가" * 301 + '"}', '{"refused":""}', "[1]",
+    "죄송해요", '{"intent":""}', '{"intent":1}', '{"twist":"a"}',
+    '{"intent":"' + "가" * 301 + '"}', '{"refused":""}', "[1]",
 ])
 def test_convert_bad_format_502(client, monkeypatch, out):
     monkeypatch.setattr(app.main, "complete", conv_fake(out))
