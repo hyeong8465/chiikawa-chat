@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -114,7 +115,8 @@ async def suggest(request: Request):
     convo = "\n".join(f"{names[m['role']]}: {clean(m['content'])}" for m in body["messages"][-SUGGEST_RECENT:])
     tpl = (Path(__file__).parent / "prompts" / "suggest.md").read_text(encoding="utf-8")
     try:
-        text, _ = complete([{"role": "user", "content": fill(tpl, conversation=convo)}], SUGGEST_MODEL)
+        # 동기 호출을 스레드로: async 안에서 직접 부르면 기다리는 동안 다른 요청 전부 멈춤
+        text, _ = await run_in_threadpool(complete, [{"role": "user", "content": fill(tpl, conversation=convo)}], SUGGEST_MODEL)
         return {"suggestions": _parse_suggestions(text)}
     except Exception as e:
         # 본 대화에 영향 없게 숨김. 크레딧 소진 포함 모든 실패
@@ -157,7 +159,7 @@ async def convert(request: Request):
     safe = text.replace("<", "＜").replace(">", "＞")  # </text>로 태그를 닫고 지시를 끼워 넣는 것 방지
     prompt = fill(fill(tpl, speech_rules=rules), text=safe)  # 규칙 먼저: 사용자 입력 속 자리표시 재치환 방지
     try:
-        out, _ = complete([{"role": "user", "content": prompt}], CHAT_MODEL, MAX_TOKENS_CONVERT, reasoning=True)
+        out, _ = await run_in_threadpool(complete, [{"role": "user", "content": prompt}], CHAT_MODEL, MAX_TOKENS_CONVERT, reasoning=True)
         return _parse_convert(out)
     except CreditExhausted:
         return JSONResponse({"code": "credit", "message": messages.CREDIT_EXHAUSTED}, status_code=502)
@@ -178,7 +180,7 @@ async def feedback(request: Request):
         return _bad("invalid")
     if type(val) is not int or val not in (1, -1, 0):  # 0 = 취소
         return _bad("invalid")
-    score(tid, val)
+    await run_in_threadpool(score, tid, val)
     return Response(status_code=204)
 
 

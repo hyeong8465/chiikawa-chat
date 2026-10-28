@@ -1,5 +1,8 @@
+import asyncio
 import json
+import threading
 
+import httpx
 import pytest
 
 import app.main
@@ -326,3 +329,39 @@ def test_total_chars_cap(client):
 
 def test_feedback_rejects_non_hex_trace(client):
     assert fb(client, {"trace_id": "abc", "value": 1}).status_code == 400
+
+
+# --- 동기 호출(모델·Langfuse) 중 다른 요청 막힘 여부 ---
+@pytest.mark.parametrize("path,body,out,status", [
+    ("/api/suggest", {"messages": [U, A]}, '["a","b","c"]', 200),
+    ("/api/convert", {"text": "늦지 말고 나와"}, '{"intent": "x"}', 200),
+    ("/api/feedback", {"trace_id": "a" * 32, "value": 1}, None, 204),
+])
+def test_sync_call_does_not_block_server(monkeypatch, path, body, out, status):
+    # 시간 대신 끝난 순서로 판정: 느린 호출은 health가 끝날 때까지 기다림.
+    # 루프가 막히면 health가 못 끝나 느린 호출이 시간 초과로 먼저 끝남
+    started, released, order = threading.Event(), threading.Event(), []
+
+    def slow(*a, **k):
+        started.set()
+        released.wait(timeout=2)
+        order.append("slow")
+        return out, None
+    monkeypatch.setattr(app.main, "complete", slow)
+    monkeypatch.setattr(app.main, "score", slow)
+
+    async def run():
+        transport = httpx.ASGITransport(app=app.main.app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://t") as c:
+            slow_req = asyncio.create_task(c.post(path, json=body))
+            while not started.is_set():  # 느린 호출이 실제로 시작될 때까지
+                assert not slow_req.done(), "느린 호출 전에 끝남(검증 실패 등)"
+                await asyncio.sleep(0.01)
+            await c.get("/api/health")
+            order.append("health")
+            released.set()
+            return await slow_req
+
+    r = asyncio.run(run())
+    assert r.status_code == status
+    assert order == ["health", "slow"]
