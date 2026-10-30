@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="800" viewBox="0 0 880 800" font-family="-apple-system, 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif" font-size="13">
+<defs><marker id="a" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#444"/></marker></defs>
+<rect width="880" height="800" fill="#fff"/>
+<rect x="20" y="8" width="240" height="777" rx="6" fill="none" stroke="#bbb"/>
+<text x="30" y="25" fill="#666" font-size="12" font-weight="bold">프롬프트 풀</text>
+<rect x="35" y="40" width="210" height="115" rx="6" fill="none" stroke="#bbb"/>
+<text x="45" y="57" fill="#666" font-size="12" font-weight="bold">기능 프롬프트</text>
+<rect x="50" y="70" width="170" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="135.0" y="89.5" text-anchor="middle" fill="#222">suggest.md</text>
+<rect x="50" y="115" width="170" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="135.0" y="134.5" text-anchor="middle" fill="#222">convert.md</text>
+<rect x="35" y="170" width="210" height="310" rx="6" fill="none" stroke="#bbb"/>
+<text x="45" y="187" fill="#666" font-size="12" font-weight="bold">캐릭터 자료</text>
+<rect x="50" y="200" width="170" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="135.0" y="219.5" text-anchor="middle" fill="#222">character.md</text>
+<rect x="50" y="245" width="170" height="40" rx="4" fill="#fff" stroke="#555"/>
+<text x="135.0" y="262.0" text-anchor="middle" fill="#222">episodes.yaml</text>
+<text x="135.0" y="277.0" text-anchor="middle" fill="#777" font-size="11">(검수 통과 카드만)</text>
+<rect x="50" y="300" width="170" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="135.0" y="319.5" text-anchor="middle" fill="#222">platform.md</text>
+<rect x="50" y="345" width="170" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="135.0" y="364.5" text-anchor="middle" fill="#222">chat_guide.md</text>
+<rect x="50" y="390" width="170" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="135.0" y="409.5" text-anchor="middle" fill="#222">examples.md</text>
+<rect x="50" y="435" width="170" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="135.0" y="454.5" text-anchor="middle" fill="#222">intro.md</text>
+<rect x="35" y="495" width="210" height="275" rx="6" fill="none" stroke="#bbb"/>
+<text x="45" y="512" fill="#666" font-size="12" font-weight="bold">채점 프롬프트</text>
+<rect x="50" y="525" width="170" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="135.0" y="544.5" text-anchor="middle" fill="#222">user_sim.md</text>
+<rect x="50" y="615" width="170" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="135.0" y="634.5" text-anchor="middle" fill="#222">scenarios.yaml</text>
+<rect x="50" y="680" width="170" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="135.0" y="699.5" text-anchor="middle" fill="#222">judge_checklist.md</text>
+<rect x="50" y="725" width="170" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="135.0" y="744.5" text-anchor="middle" fill="#222">judge_pair.md</text>
+<rect x="300" y="40" width="260" height="320" rx="6" fill="none" stroke="#bbb"/>
+<text x="310" y="57" fill="#666" font-size="12" font-weight="bold">서비스 기능</text>
+<rect x="380" y="70" width="140" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="450.0" y="89.5" text-anchor="middle" fill="#222">추천 답변</text>
+<rect x="380" y="115" width="140" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="450.0" y="134.5" text-anchor="middle" fill="#222">말투 변환</text>
+<rect x="380" y="315" width="140" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="450.0" y="334.5" text-anchor="middle" fill="#222">채팅</text>
+<rect x="300" y="505" width="280" height="150" rx="6" fill="none" stroke="#bbb"/>
+<text x="310" y="522" fill="#666" font-size="12" font-weight="bold">채점용 답안 생성</text>
+<rect x="310" y="570" width="100" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="360.0" y="589.5" text-anchor="middle" fill="#222">사용자 흉내</text>
+<rect x="450" y="570" width="100" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="500.0" y="589.5" text-anchor="middle" fill="#222">답 생성</text>
+<rect x="640" y="560" width="220" height="210" rx="6" fill="none" stroke="#bbb"/>
+<text x="650" y="577" fill="#666" font-size="12" font-weight="bold">채점</text>
+<rect x="680" y="680" width="140" height="30" rx="4" fill="#fff" stroke="#555"/>
+<text x="750.0" y="699.5" text-anchor="middle" fill="#222">LLM 채점</text>
+<rect x="680" y="725" width="140" height="30" rx="4" fill="#f2f2f2" stroke="#aaa" stroke-dasharray="4 3"/>
+<text x="750.0" y="744.5" text-anchor="middle" fill="#888">쌍대 비교</text>
+<polyline points="220,85 380,85" fill="none" stroke="#444" stroke-width="1.3" marker-end="url(#a)"/>
+<polyline points="220,130 380,130" fill="none" stroke="#444" stroke-width="1.3" marker-end="url(#a)"/>
+<polyline points="220,207 450,207 450,145" fill="none" stroke="#444" stroke-width="1.3" stroke-dasharray="4 3" marker-end="url(#a)"/>
+<text x="262" y="200" fill="#555" font-size="11">말투 절(대화 전용 줄 제외)</text>
+<polyline points="245,330 380,330" fill="none" stroke="#444" stroke-width="1.3" marker-end="url(#a)"/>
+<polyline points="245,472 500,472 500,570" fill="none" stroke="#444" stroke-width="1.3" marker-end="url(#a)"/>
+<polyline points="220,540 360,540 360,570" fill="none" stroke="#444" stroke-width="1.3" marker-end="url(#a)"/>
+<polyline points="220,630 500,630 500,600" fill="none" stroke="#444" stroke-width="1.3" marker-end="url(#a)"/>
+<polyline points="360,630 360,600" fill="none" stroke="#444" stroke-width="1.3" marker-end="url(#a)"/>
+<circle cx="360" cy="630" r="2.5" fill="#444"/>
+<polyline points="410,585 450,585" fill="none" stroke="#444" stroke-width="1.3" marker-end="url(#a)"/>
+<polyline points="550,585 710,585 710,680" fill="none" stroke="#444" stroke-width="1.3" marker-end="url(#a)"/>
+<polyline points="220,223 790,223 790,680" fill="none" stroke="#444" stroke-width="1.3" marker-end="url(#a)"/>
+<polyline points="220,265 750,265 750,680" fill="none" stroke="#444" stroke-width="1.3" marker-end="url(#a)"/>
+<polyline points="220,695 680,695" fill="none" stroke="#444" stroke-width="1.3" marker-end="url(#a)"/>
+<polyline points="220,740 680,740" fill="none" stroke="#444" stroke-width="1.3" marker-end="url(#a)"/>
+</svg>

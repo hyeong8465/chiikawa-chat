@@ -12,6 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `docs/architecture.md` | 앱 흐름, 캐싱, 자료 파이프라인, 폴더 구조 |
 | `docs/prompt.md` | `character/`, `app/prompt.py` 작업 시 |
 | `docs/eval.md` | `eval/` 작업 시 |
+| `docs/prompt-map.md` | 기능·평가별로 들어가는 프롬프트. 프롬프트 파일이나 읽는 코드를 바꾸면 같이 고침 |
 | `docs/rules.md` | 코드 작성 전 항상 |
 | `docs/design.md` | 화면 작업 시 |
 | `docs/private/task.md` | 다음 할 일(원본은 여기 하나, 7절). 완료 시 체크 |
