@@ -116,6 +116,55 @@
 - 비틀기판: 정답 없음 → 사람이 쌍대 비교. 기준: 원래 의도와 연결, 웃김, 하치와레다움
 - 오용 시나리오: 욕설·혐오·특정인 공격 입력 → 거절하는지 확인
 
+## CI 회귀 평가 (`.github/workflows/eval-*.yml`, `eval/ci.py`)
+
+- 대상 파일: `character/`, `app/prompts/`, `app/prompt.py`, `app/config.py`, `app/llm.py`, `eval/`, 워크플로 자체
+- 범위: 긴 대화 2개 뺀 39개, Sonnet(운영 모델). 긴 대화는 R1(고정 대화) 전까지 손으로
+- Secrets(사용자가 넣음): `OPENROUTER_API_KEY`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, `LANGFUSE_BASE_URL`
+
+| 흐름 | 언제 | 하는 일 |
+|---|---|---|
+| PR 평가(`eval-pr`) | 대상 파일 바뀐 PR, 자동 | main에 PR 합친 상태로 평가 → `eval-baseline` 브랜치 기준선과 비교 → 댓글 하나 고쳐 씀. 같은 PR 새 푸시면 이전 실행 취소. 머지 안 막음 |
+| 기준선 갱신(`eval-baseline`) | 대상 파일 바뀐 채 main 머지, 또는 수동 | main으로 평가 → 평가한 커밋이 아직 main 최신일 때만 `eval-baseline` 브랜치에 `baseline-sonnet.jsonl` 저장. 한 번에 하나 |
+
+- 비교 공정성: 기준선 채점자(`meta.judge`)가 PR과 다르면 기준선 답은 두고 PR 채점자로 다시 채점 후 비교
+- 경합: 기준선 커밋 ≠ main 최신이면 댓글 맨 위 경고. 다시 돌리면 정확해짐
+- 댓글(C 모양): 요약 한 줄(채점·규칙 통과 기준선→PR, 나빠짐·나아짐·비교 못 함) → 나빠진 시나리오 표(채점자 이유) → 접힘(항목별 통과율, 나아진 것, 단계별 비용·캐시, 실행 정보)
+- 규칙 검사는 시나리오 안 모든 턴 통과면 통과. 오류·한쪽에만 있는 시나리오는 "비교 못 함"
+- 로컬: `eval.report --compare <기준선> <결과>`, `eval.report --cache <결과>`
+- 점수 흔들림은 아직 못 거름(R2·R3) → 참고용
+
+## Langfuse 태그
+
+- `propagate_attributes`로 붙임(langfuse 5.0.2 OpenAI 래퍼의 `tags` 인자는 반영 안 됨). `version` = 커밋(필터 가능), `metadata.prompt_version`도 유지
+
+| 호출 | 태그 |
+|---|---|
+| 채팅 / 추천 / 변환 | `chat` / `suggest` / `convert` |
+| 평가 생성 / 사용자 흉내 / 채점 | `eval` + 라벨 + `ci`·`manual` + `eval:chat` / `eval:sim` / `eval:judge` |
+| 골든셋 일치율 | `eval`, `eval:agree`, `manual`(+ `eval:judge`) |
+
+- `ci`: GitHub Actions(`GITHUB_ACTIONS`), `manual`: 손으로
+- 운영만 보기: `eval` 태그 없는 트레이스
+- 확인(2026-10-31, v2 metrics API): 기준선 실측에서 `eval·baseline·manual·eval:chat` 45건, `…·eval:judge` 39건
+
+## 비용·캐시 실측
+
+- 측정: 2026-10-31, 커밋 5bf16bf + 2단계 작업 중 코드, Sonnet 5.5 생성 · gpt-5.6-luna 채점, 긴 대화 뺀 39개
+- "캐시 없었으면" = 같은 토큰을 전부 일반 입력 단가로 냈다고 친 값(단가는 OpenRouter 모델 목록, 실행 정보 `prices`에 기록)
+
+| 단계 | 실제 비용 | 캐시 없었으면 | 절감 | 캐시 적중률 |
+|---|---|---|---|---|
+| 답 생성 | $0.2192 | $2.1235 | $1.9043(90%) | 98% |
+| 채점 | $0.0227 | $0.1140 | $0.0913(80%) | 96% |
+| **합계** | **$0.2418** | **$2.2376** | **$1.9958(89%)** | 97% |
+
+- 생성: 첫 시나리오가 시스템 프롬프트(약 2.4만 토큰)를 캐시에 쓰고 나머지는 읽음. 쓰기는 일반의 1.25배라 쓰기 1번 + 읽기 다수 구조
+- 채점: system 분리(D73) 뒤 96%. 남은 4%는 첫 호출의 캐시 쓰기
+- 결론: 두 단계 다 적중률 90% 넘어 고칠 곳 없음. PR 한 번 약 $0.24, 남은 비용 대부분은 생성 출력(추론 포함)
+- 긴 대화(옛 결과 v1-sonnet): 2개 $0.35, 읽기 66% → 사용자 흉내가 캐시 없이 매 턴 전체 대화를 보내는 것으로 추정. R1(고정 대화)로 해결 예정
+- 다시 재기: `eval.report --cache <결과파일>`
+
 ## 리포트 항목
 
 - 항목별 채점자–사람 일치율

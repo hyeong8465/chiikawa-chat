@@ -28,7 +28,7 @@ def fake(monkeypatch, outs):
     calls = []
     it = iter(outs)
 
-    def f(messages, model, max_tokens=None):
+    def f(messages, model, max_tokens=None, **k):
         calls.append((messages, model))
         return next(it), Usage(1, 0, 0, 1, 0.5)
 
@@ -85,7 +85,7 @@ def test_fill_leaves_braces():
 
 
 def fake_stream(monkeypatch):
-    def f(messages, model, max_tokens=None):
+    def f(messages, model, max_tokens=None, **k):
         yield "delta", "*끄덕* 응."
         yield "done", {"usage": Usage(10, 2, 0, 3, 0.25), "trace_id": "t"}
 
@@ -186,7 +186,7 @@ def count_stream(monkeypatch, fail_on=()):
     # 생성 횟수를 세는 가짜 stream. fail_on의 사용자 말이면 크레딧 소진
     calls = []
 
-    def f(messages, model, max_tokens=None):
+    def f(messages, model, max_tokens=None, **k):
         c = messages[-1]["content"]
         calls.append(c if isinstance(c, str) else c[0]["text"])  # 마지막 메시지는 캐시 표시가 붙은 블록
         if calls[-1] in fail_on:
@@ -289,7 +289,7 @@ def test_credit_keeps_rows_already_running(monkeypatch, tmp_path):
     ok_judge(monkeypatch)
     scen(monkeypatch, tmp_path, TWO + [{"id": "f", "category": "daily", "turns": ["c"], "note": ""}])
 
-    def f(messages, model, max_tokens=None):
+    def f(messages, model, max_tokens=None, **k):
         c = messages[-1]["content"]
         text = c if isinstance(c, str) else c[0]["text"]
         if text == "b":
@@ -313,6 +313,46 @@ def test_rejudge_skips_gen_error_rows(monkeypatch, tmp_path):
     write_rows(p, {}, [row])
     (r,) = read(run.rejudge(p))
     assert r["judge"] == {"error": "StreamError: x"}
+
+
+def test_eval_tags_ci_manual(monkeypatch):
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    assert run.eval_tags("v1") == ("eval", "v1", "manual")
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert run.eval_tags("v1") == ("eval", "v1", "ci")
+
+
+def test_tags_inside_threads(monkeypatch, tmp_path):
+    # 평가는 스레드 병렬. 각 호출 태그에 eval·라벨·단계가 붙어야 함
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    seen = []
+
+    def f(messages, model, max_tokens=None, tags=()):
+        seen.append(llm.current_tags() + tuple(tags))
+        yield "delta", "*끄덕* 응."
+        yield "done", {"usage": Usage(1, 0, 0, 1, 0.1), "trace_id": "t"}
+    monkeypatch.setattr(llm, "stream_chat", f)
+    ok_judge(monkeypatch), scen(monkeypatch, tmp_path, TWO + [{"id": "f", "category": "daily", "turns": ["c"], "note": ""}])
+    run.run("v1", "haiku")
+    assert len(seen) == 3 and all(t == ("eval", "v1", "manual", "eval:chat") for t in seen)
+
+
+def test_judge_tag(prompts, monkeypatch):
+    seen = []
+    monkeypatch.setattr(llm, "complete", lambda m, model, mt=None, tags=(): seen.append(tags) or (json.dumps({i: True for i in judge.ITEMS}), Usage(0, 0, 0, 0, 0)))
+    judge.checklist(S, "a")
+    assert seen == [("eval:judge",)]
+
+
+def test_run_exclude_category(monkeypatch, tmp_path):
+    ok_judge(monkeypatch), count_stream(monkeypatch)
+    scen(monkeypatch, tmp_path, TWO + [{"id": "l", "category": "long", "length": 2, "note": ""}])
+    p = run.run("v1", "haiku", exclude=["long"])
+    assert sorted(r["id"] for r in read(p)) == ["d", "e"]
+    m = meta_of(p)
+    assert m["scenarios"]["exclude"] == ["long"] and m["scenarios"]["count"] == 2
+    with pytest.raises(SystemExit, match="scenarios"):  # 다른 세트로 이어 돌리기 거부
+        run.run("v1", "haiku", resume=True)
 
 
 def test_agree_table_directions():

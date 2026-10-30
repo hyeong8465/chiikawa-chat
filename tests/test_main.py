@@ -20,7 +20,7 @@ def post(client, msgs):
 
 
 def fake(events=None, exc=None):
-    def f(messages):
+    def f(messages, **k):
         for e in events or []:
             yield e
         if exc:
@@ -52,7 +52,7 @@ def test_chat_streams(client, ok):
 
 def test_chat_builds_prompt_with_history(client, monkeypatch):
     seen = {}
-    def f(m):
+    def f(m, **k):
         seen["m"] = m
         return iter([("done", {"trace_id": "t"})])
     monkeypatch.setattr(app.main, "stream_chat", f)
@@ -140,7 +140,7 @@ def suggest(client, msgs=None):
 
 
 def fake_complete(text=None, exc=None):
-    def f(messages, model):
+    def f(messages, model, *a, **k):
         if exc:
             raise exc
         return text, None
@@ -149,7 +149,7 @@ def fake_complete(text=None, exc=None):
 
 def test_suggest_three(client, monkeypatch):
     seen = {}
-    def f(m, model):
+    def f(m, model, *a, **k):
         seen["m"], seen["model"] = m, model
         return '["나도 그래","왜 그래?","ㅋㅋ 진짜?"]', None
     monkeypatch.setattr(app.main, "complete", f)
@@ -160,7 +160,7 @@ def test_suggest_three(client, monkeypatch):
 
 def test_suggest_uses_only_last_6(client, monkeypatch):
     seen = {}
-    def f(m, model):
+    def f(m, model, *a, **k):
         seen["t"] = m[0]["content"]
         return '["a","b","c"]', None
     monkeypatch.setattr(app.main, "complete", f)
@@ -260,7 +260,7 @@ def convert(client, text="늦지 말고 나와"):
 
 
 def conv_fake(text=None, exc=None, seen=None):
-    def f(m, model, max_tokens=None, reasoning=False):
+    def f(m, model, max_tokens=None, reasoning=False, tags=()):
         if seen is not None:
             seen["m"], seen["model"], seen["reasoning"] = m, model, reasoning
         if exc:
@@ -379,3 +379,22 @@ def test_sync_call_does_not_block_server(monkeypatch, path, body, out, status):
     r = asyncio.run(run())
     assert r.status_code == status
     assert order == ["health", "slow"]
+
+
+def test_feature_tags(client, monkeypatch):
+    # Langfuse에서 기능별로 거르기
+    seen = []
+
+    def s(m, **k):
+        seen.append(k.get("tags"))
+        return iter([("done", {"trace_id": "t"})])
+
+    def c(m, model, *a, **k):
+        seen.append(k.get("tags"))
+        return '["a","b","c"]', None
+    monkeypatch.setattr(app.main, "stream_chat", s)
+    monkeypatch.setattr(app.main, "complete", c)
+    post(client, [A, U]), suggest(client)
+    monkeypatch.setattr(app.main, "complete", lambda m, model, *a, **k: seen.append(k.get("tags")) or ('{"intent":"x"}', None))
+    convert(client)
+    assert seen == [("chat",), ("suggest",), ("convert",)]

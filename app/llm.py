@@ -3,11 +3,14 @@ import logging
 import os
 import time
 import uuid
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 from functools import cache
 from typing import Iterator
 
 import openai
+from langfuse import propagate_attributes
 
 from app.config import CHAT_MODEL, MAX_TOKENS_CHAT, MAX_TOKENS_OTHER, PROMPT_VERSION, PROVIDER, REASONING
 
@@ -89,11 +92,30 @@ def _is_credit(e: openai.APIError) -> bool:
 RETRY_WAIT = 1  # 초. 바로 다시 하면 같은 혼잡·고장에 또 부딪힘. 대화는 사용자가 기다리는 중이라 짧게
 
 
-def _create(kwargs: dict):
+_TAGS: ContextVar[tuple[str, ...]] = ContextVar("tags", default=())
+
+
+@contextmanager
+def tagging(*tags: str):
+    # 이 블록 안 호출의 Langfuse 트레이스에 태그 덧붙임(평가 라벨 등). 스레드는 안 건너감 → 작업 함수 안에서
+    token = _TAGS.set(_TAGS.get() + tags)
+    try:
+        yield
+    finally:
+        _TAGS.reset(token)
+
+
+def current_tags() -> tuple[str, ...]:
+    return _TAGS.get()
+
+
+def _create(kwargs: dict, tags: tuple[str, ...] = ()):
     # 429·5xx·연결 오류는 첫 토큰 전 1회 재시도. 시간 초과는 제외(60초 없던 응답을 또 60초 기다림)
     for attempt in (0, 1):
         try:
-            return _client().chat.completions.create(**kwargs)
+            # 래퍼의 tags 인자는 형식만 보고 버림(langfuse 5.0.2) → propagate_attributes로
+            with propagate_attributes(tags=[*_TAGS.get(), *tags], version=PROMPT_VERSION):
+                return _client().chat.completions.create(**kwargs)
         except openai.APIError as e:
             if _is_credit(e):
                 raise CreditExhausted from e
@@ -117,14 +139,15 @@ def _check_error(obj):
         raise StreamError(str(err))
 
 
-def stream_chat(messages: list[dict], model: str = CHAT_MODEL) -> Iterator[tuple[str, object]]:
+def stream_chat(messages: list[dict], model: str = CHAT_MODEL, tags: tuple[str, ...] = ()) -> Iterator[tuple[str, object]]:
     trace_id = uuid.uuid4().hex
     stream = _create(
         {
             **_kwargs(messages, model, True, trace_id),
             "stream": True,
             "stream_options": {"include_usage": True},
-        }
+        },
+        tags,
     )
     usage = None
     finished = False
@@ -153,8 +176,9 @@ def stream_chat(messages: list[dict], model: str = CHAT_MODEL) -> Iterator[tuple
     yield "done", {"usage": _usage(usage), "trace_id": trace_id}
 
 
-def complete(messages: list[dict], model: str, max_tokens: int | None = None, reasoning: bool = False) -> tuple[str, Usage]:
-    res = _create(_kwargs(messages, model, False, uuid.uuid4().hex, max_tokens, reasoning))
+def complete(messages: list[dict], model: str, max_tokens: int | None = None, reasoning: bool = False,
+             tags: tuple[str, ...] = ()) -> tuple[str, Usage]:
+    res = _create(_kwargs(messages, model, False, uuid.uuid4().hex, max_tokens, reasoning), tags)
     _check_error(res)
     ch = (getattr(res, "choices", None) or [None])[0]
     if ch is None:

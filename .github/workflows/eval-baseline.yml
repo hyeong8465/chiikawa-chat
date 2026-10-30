@@ -1,0 +1,55 @@
+# 기준선 갱신: 프롬프트·평가 코드가 바뀐 채 main에 머지되면 평가 → eval-baseline 브랜치에 저장(main 이력엔 안 남김)
+name: eval-baseline
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "character/**"
+      - "app/prompts/**"
+      - "app/prompt.py"
+      - "app/config.py"
+      - "app/llm.py"
+      - "eval/**"
+      - ".github/workflows/eval-*.yml"
+  workflow_dispatch:
+
+concurrency:  # 한 번에 하나. 대기 중엔 가장 최신만 남음 → 옛 기준선이 새 것을 덮지 않음
+  group: eval-baseline
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+      LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+      LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+
+      - name: 평가
+        run: uv run python -m eval.run --label baseline --model sonnet --exclude-category long
+
+      - name: 저장(평가한 커밋이 아직 main 최신일 때만)
+        run: |
+          head=$(git ls-remote origin refs/heads/main | cut -f1)
+          if [ "$head" != "$GITHUB_SHA" ]; then echo "main이 그새 바뀜: 저장 안 함(다음 실행이 저장)"; exit 0; fi
+          cp eval/results/baseline-sonnet.jsonl "$RUNNER_TEMP/"
+          if git fetch --depth 1 origin eval-baseline; then
+            git checkout -B eval-baseline FETCH_HEAD
+          else
+            git checkout --orphan eval-baseline && git rm -rfq .
+          fi
+          cp "$RUNNER_TEMP/baseline-sonnet.jsonl" .
+          git add baseline-sonnet.jsonl
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "baseline: ${GITHUB_SHA::7}"
+          git push origin eval-baseline

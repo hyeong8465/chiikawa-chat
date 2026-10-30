@@ -39,10 +39,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 골든셋 채점 도구 | `uv run python scripts/grade_server.py` → http://127.0.0.1:8766, 결과 `eval/golden/labels.csv`(누를 때마다 저장) |
 | 말뭉치 통합 | `uv run python scripts/build_corpus.py` → `data/raw/corpus.jsonl` |
 | 로컬 서버 | `uv run --env-file .env uvicorn app.main:app --reload` → http://127.0.0.1:8000 (실제 모델 호출. 앱은 `.env`를 직접 안 읽음. `--reload`는 `.py`만 감시 → `character/`·`app/prompts/`의 `.md` 고치면 서버 재시작) |
-| 평가 실행 | `uv run --env-file .env python -m eval.run --label v1 --model haiku` (부분: `--only id1,id2`, 이어서: `--resume`) → `eval/results/<라벨>-<모델>.jsonl`. 같은 라벨 있으면 멈춤. 크레딧 사용 |
+| 평가 실행 | `uv run --env-file .env python -m eval.run --label v1 --model haiku` (부분: `--only id1,id2`, 범주 빼기: `--exclude-category long`, 이어서: `--resume`) → `eval/results/<라벨>-<모델>.jsonl`. 같은 라벨 있으면 멈춤. 크레딧 사용 |
 | 다시 채점 | `uv run --env-file .env python -m eval.run --rejudge eval/results/v1-haiku.jsonl` → 원본 두고 `.rejudge-<월일>.jsonl` 새 파일. 크레딧 사용 |
 | 채점자 일치율 | `uv run --env-file .env python -m eval.agree --model judge` → 골든셋 사람 채점과 항목별 일치율. 크레딧 사용 |
-| 평가 리포트 | `uv run python -m eval.report eval/results/v1-*.jsonl` (`--exclude-category long`) |
+| 평가 리포트 | `uv run python -m eval.report eval/results/v1-*.jsonl` (`--exclude-category long`, 단계별 캐시·절감: `--cache`, 두 결과 비교: `--compare 기준선 결과`) |
+| CI 평가 | PR·main 머지 때 자동(`.github/workflows/eval-*.yml`). 기준선은 `eval-baseline` 브랜치. Secrets 4개 필요(`docs/eval.md`) |
 | 캐싱 비용 검증 | `uv run --env-file .env python -m eval.cost_check --turns 10` → `eval/results/cost.json`. 크레딧 사용 |
 | 미리보기 배포 | `vercel deploy` (운영은 작업 12부터 GitHub 연동) |
 | 배포 확인 | `vercel curl /api/health --deployment <주소>` |

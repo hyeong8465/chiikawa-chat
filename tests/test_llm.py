@@ -267,3 +267,20 @@ def test_score_ignores_errors(monkeypatch):
     llm.score("t1", -1)
     monkeypatch.setattr(langfuse, "get_client", lambda: (_ for _ in ()).throw(RuntimeError("x")))
     llm.score("t1", -1)
+
+
+def test_create_passes_tags(monkeypatch):
+    # 태그는 propagate_attributes로 붙음(래퍼의 tags 인자는 무시됨). 바깥 tagging + 호출 인자 합침
+    seen = []
+
+    class P:
+        def __init__(self, **kw): seen.append(kw)
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    monkeypatch.setattr(llm, "propagate_attributes", P)
+    monkeypatch.setattr(llm, "_client", lambda: NS(chat=NS(completions=NS(create=lambda **k: "res"))))
+    with llm.tagging("eval", "v1"):
+        assert llm._create({"model": "m"}, ("eval:chat",)) == "res"
+    assert seen[0]["tags"] == ["eval", "v1", "eval:chat"] and seen[0]["version"] == llm.PROMPT_VERSION
+    llm._create({"model": "m"}, ("chat",))
+    assert seen[1]["tags"] == ["chat"]  # 블록 밖에선 안 남음
