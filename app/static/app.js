@@ -150,13 +150,25 @@ function setChips(list) {
 
 async function suggest() {
   setChips([]);
-  if (!msgs.length || msgs[msgs.length - 1].role !== 'assistant' || dead) return;
+  const last = msgs[msgs.length - 1];  // 요청 시점의 답. 응답 올 때 아직 마지막인지 확인
+  if (!last || last.role !== 'assistant' || dead) return;
   try {
     const r = await fetch('/api/suggest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: payload() }) });
     if (!r.ok) return;
     const { suggestions } = await r.json();
-    if (Array.isArray(suggestions) && !busy) setChips(suggestions);
+    if (!Array.isArray(suggestions) || !suggestions.length) return;  // 빈 결과는 저장 안 함 → 다음에 열 때 다시 시도
+    if (last !== msgs[msgs.length - 1]) return;  // 기다리는 사이 새 말이 옴 → 지난 답 추천은 버림
+    last.suggestions = suggestions;  // 새로고침해도 같은 추천, 재호출 없음. payload()가 role·content만 보내 서버엔 안 감
+    save();
+    if (!busy) setChips(suggestions);
   } catch { /* 칩 숨김 */ }
+}
+
+// 저장된 추천이 있으면 그대로, 없으면 새로 받기(첫 로드·보내기 실패 후)
+function restoreChips() {
+  const saved = msgs[msgs.length - 1]?.suggestions;
+  if (Array.isArray(saved) && saved.length && saved.every((x) => typeof x === 'string')) setChips(saved);
+  else suggest();
 }
 
 // 최근 80~160개만 전송. 80개 단위로 잘라 앞부분이 매 턴 바뀌지 않게(캐시 유지), 서버 상한 200 아래 유지
@@ -244,7 +256,10 @@ async function send(text) {
   busy = false;
   render();
   if (!failed) suggest();
-  else if (!dead) input.focus();
+  else {
+    restoreChips();
+    if (!dead) input.focus();
+  }
 }
 
 $('form').onsubmit = (e) => { e.preventDefault(); send(input.value); };
@@ -316,6 +331,6 @@ async function init() {
     $('notice-ok').onclick = () => { store.set(NOTICE_KEY, '1'); d.close(); };
     if (d.showModal) d.showModal();
   }
-  suggest();
+  restoreChips();
 }
 init();
