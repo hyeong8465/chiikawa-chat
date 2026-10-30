@@ -138,6 +138,36 @@ def test_finish_reason_error_raises(monkeypatch):
         list(stream_chat(MSGS))
 
 
+def test_finish_reason_length_raises(monkeypatch):
+    # 토큰 상한에 닿아 잘린 답을 정상 답으로 저장하지 않음
+    install(monkeypatch, lambda: sse(_c("있잖아, 나도"), _c(finish="length"), _c(choices=[], usage=USAGE)))
+    with pytest.raises(StreamError, match="length"):
+        list(stream_chat(MSGS))
+
+
+def test_finish_reason_content_filter_raises(monkeypatch):
+    install(monkeypatch, lambda: sse(_c("있잖아"), _c(finish="content_filter"), _c(choices=[], usage=USAGE)))
+    with pytest.raises(StreamError, match="content_filter"):
+        list(stream_chat(MSGS))
+
+
+def test_complete_length_raises(monkeypatch):
+    # 추천·변환·채점도 잘린 답을 정상 결과로 받지 않음
+    install(monkeypatch, lambda: httpx.Response(200, json={
+        "id": "x", "object": "chat.completion", "created": 0, "model": "m",
+        "choices": [{"index": 0, "finish_reason": "length", "message": {"role": "assistant", "content": '["a",'}}],
+    }))
+    with pytest.raises(StreamError):
+        complete(MSGS, model="openai/gpt-5.6-luna")
+
+
+def test_empty_reply_raises(monkeypatch):
+    # 빈 답이 화면에 저장되면 다음 요청마다 400 → 대화가 갇힘
+    install(monkeypatch, lambda: sse(_c(finish="stop"), _c(choices=[], usage=USAGE)))
+    with pytest.raises(StreamError, match="빈 답"):
+        list(stream_chat(MSGS))
+
+
 def test_no_finish_reason_raises(monkeypatch):
     install(monkeypatch, lambda: sse(_c("안")))
     with pytest.raises(StreamError):

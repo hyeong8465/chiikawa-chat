@@ -102,6 +102,10 @@ def _create(kwargs: dict):
             raise
 
 
+# length = 토큰 상한(추론 포함)에 닿아 잘림, content_filter = 공급자가 중간에 끊음. 모르는 값은 정상 취급(새 값에 전부 실패 방지)
+BAD_FINISH = ("error", "length", "content_filter")
+
+
 def _check_error(obj):
     err = getattr(obj, "error", None)
     if err:
@@ -119,17 +123,19 @@ def stream_chat(messages: list[dict], model: str = CHAT_MODEL) -> Iterator[tuple
     )
     usage = None
     finished = False
+    has_text = False  # 공백만 와도 빈 답: 화면 저장 후 다음 요청이 400(내용 비었음)으로 막힘
     try:
         for chunk in stream:
             if getattr(chunk, "usage", None):
                 usage = chunk.usage
             for ch in getattr(chunk, "choices", None) or []:
                 fr = getattr(ch, "finish_reason", None)
-                if fr == "error":
-                    raise StreamError("finish_reason=error")
+                if fr in BAD_FINISH:
+                    raise StreamError(f"finish_reason={fr}")
                 finished = finished or fr is not None
                 text = getattr(getattr(ch, "delta", None), "content", None)
                 if text:
+                    has_text = has_text or bool(text.strip())
                     yield "delta", text
     except openai.APIError as e:  # 스트림 중 SSE error는 SDK가 예외로 던짐
         if _is_credit(e):
@@ -137,6 +143,8 @@ def stream_chat(messages: list[dict], model: str = CHAT_MODEL) -> Iterator[tuple
         raise StreamError(str(e)) from e
     if not finished:
         raise StreamError("finish_reason 없이 종료")
+    if not has_text:
+        raise StreamError("빈 답")
     yield "done", {"usage": _usage(usage), "trace_id": trace_id}
 
 
@@ -144,8 +152,10 @@ def complete(messages: list[dict], model: str, max_tokens: int | None = None, re
     res = _create(_kwargs(messages, model, False, uuid.uuid4().hex, max_tokens, reasoning))
     _check_error(res)
     ch = (getattr(res, "choices", None) or [None])[0]
-    if ch is None or getattr(ch, "finish_reason", None) == "error":
+    if ch is None:
         raise StreamError("no choices")
+    if ch.finish_reason in BAD_FINISH:
+        raise StreamError(f"finish_reason={ch.finish_reason}")
     return ch.message.content or "", _usage(res.usage)
 
 

@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import messages
 from app.config import CHAT_MODEL, MAX_TOKENS_CONVERT, MAX_TOTAL_CHARS, MAX_ASSISTANT_CHARS, MAX_INPUT_CHARS, MAX_MESSAGES, SUGGEST_MODEL
-from app.llm import CreditExhausted, complete, extract_json, score, stream_chat
+from app.llm import CreditExhausted, StreamError, complete, extract_json, score, stream_chat
 from app.prompt import build_messages, fill, load_character, speech_rules
 
 log = logging.getLogger(__name__)
@@ -76,6 +76,11 @@ async def chat(request: Request):
                     yield _sse("done", {"trace_id": val["trace_id"]})
         except CreditExhausted:
             yield _sse("error", {"code": "credit", "message": messages.CREDIT_EXHAUSTED})
+        except StreamError as e:
+            # 잘림·빈 답 등 우리가 만든 문구만 남겨 빈도 확인. API 오류에서 온 것(__cause__)은 본문 노출 방지로 종류만
+            c = e.__cause__
+            log.error("chat 실패: StreamError %s", f"{type(c).__name__} status={getattr(c, 'status_code', None)}" if c else e)
+            yield _sse("error", {"code": "retry", "message": messages.ERROR_RETRY})
         except Exception as e:
             # 키·본문 노출 방지: 종류와 상태 코드만
             log.error("chat 실패: %s status=%s", type(e).__name__, getattr(e, "status_code", None))

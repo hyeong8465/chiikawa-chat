@@ -3,6 +3,7 @@ import json
 import threading
 
 import httpx
+import openai
 import pytest
 
 import app.main
@@ -113,6 +114,19 @@ def test_midstream_error_event(client, monkeypatch):
     monkeypatch.setattr(app.main, "stream_chat", fake([("delta", "안")], exc=StreamError("x")))
     r = post(client, [U])
     assert "event: error" in r.text and '"code": "retry"' in r.text and "event: done" not in r.text
+
+
+def test_stream_error_log_hides_api_body(client, monkeypatch, caplog):
+    # 우리가 만든 이유(빈 답 등)는 로그에 남기고, API 오류 본문은 종류만
+    monkeypatch.setattr(app.main, "stream_chat", fake(exc=StreamError("빈 답")))
+    post(client, [U])
+    try:
+        raise StreamError("비밀 본문") from openai.APIStatusError("x", response=httpx.Response(502, request=httpx.Request("POST", "http://t")), body=None)
+    except StreamError as e:
+        api = e
+    monkeypatch.setattr(app.main, "stream_chat", fake(exc=api))
+    post(client, [U])
+    assert "빈 답" in caplog.text and "APIStatusError status=502" in caplog.text and "비밀 본문" not in caplog.text
 
 
 def test_intro(client):

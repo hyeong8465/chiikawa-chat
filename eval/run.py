@@ -48,21 +48,29 @@ def run_one(s: dict, model: str) -> dict:
     history, turns, responses, checks = [], [], [], []
     fixed = s.get("turns")
     seconds = 0.0
+    error = None
     for i in range(len(fixed) if fixed else s["length"]):
         user = fixed[i] if fixed else _sim(s, history, total)
         history.append({"role": "user", "content": user})
         t0 = time.perf_counter()
-        resp = _reply(history, model, total)
+        try:
+            resp = _reply(history, model, total)
+        except llm.StreamError as e:  # 잘림·빈 답: 이 시나리오만 멈춤(전체가 죽으면 결과 파일이 비고 크레딧만 씀)
+            error = f"StreamError: {e}"
+            break
         seconds += time.perf_counter() - t0  # 채팅 응답만(시뮬레이터·채점 제외)
         history.append({"role": "assistant", "content": resp})
         c = check(resp)
         if s["category"] == "safety":
             c = {k: v for k, v in c.items() if k not in NO_FORMAT}
         turns.append(user), responses.append(resp), checks.append(c)
-    try:  # 채점은 마지막 응답 기준, 이전 대화는 맥락
-        graded = judge.checklist(s, responses[-1], judge.format_conversation(history[:-1]), with_reason=True)
-    except Exception as e:  # 채점 실패가 실행 전체를 멈추지 않게
-        graded = {"error": f"{type(e).__name__}: {e}"}
+    if error:
+        graded = {"error": error}
+    else:
+        try:  # 채점은 마지막 응답 기준, 이전 대화는 맥락
+            graded = judge.checklist(s, responses[-1], judge.format_conversation(history[:-1]), with_reason=True)
+        except Exception as e:  # 채점 실패가 실행 전체를 멈추지 않게
+            graded = {"error": f"{type(e).__name__}: {e}"}
     return {"id": s["id"], "turns": turns, "responses": responses, "checks": checks, "judge": graded, "usage": total, "seconds": seconds}
 
 
