@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import time
 import uuid
 from dataclasses import dataclass
 from functools import cache
@@ -85,8 +86,11 @@ def _is_credit(e: openai.APIError) -> bool:
     return status == 402 or (status == 403 and isinstance(meta, dict) and "limit_source" in meta)
 
 
+RETRY_WAIT = 1  # 초. 바로 다시 하면 같은 혼잡·고장에 또 부딪힘. 대화는 사용자가 기다리는 중이라 짧게
+
+
 def _create(kwargs: dict):
-    # 429·5xx·연결 오류는 첫 토큰 전 1회 재시도
+    # 429·5xx·연결 오류는 첫 토큰 전 1회 재시도. 시간 초과는 제외(60초 없던 응답을 또 60초 기다림)
     for attempt in (0, 1):
         try:
             return _client().chat.completions.create(**kwargs)
@@ -94,10 +98,11 @@ def _create(kwargs: dict):
             if _is_credit(e):
                 raise CreditExhausted from e
             status = getattr(e, "status_code", None)
-            retry = isinstance(e, openai.APIConnectionError) or (
+            retry = (isinstance(e, openai.APIConnectionError) and not isinstance(e, openai.APITimeoutError)) or (
                 status is not None and (status == 429 or status >= 500)
             )
             if attempt == 0 and retry:
+                time.sleep(RETRY_WAIT)  # 스레드에서 돌아 서버는 안 멈춤(A-1)
                 continue
             raise
 

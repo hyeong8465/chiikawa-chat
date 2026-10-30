@@ -6,6 +6,7 @@ import time
 from dataclasses import asdict, fields
 from pathlib import Path
 
+import openai
 import yaml
 
 from app import llm
@@ -50,13 +51,14 @@ def run_one(s: dict, model: str) -> dict:
     seconds = 0.0
     error = None
     for i in range(len(fixed) if fixed else s["length"]):
-        user = fixed[i] if fixed else _sim(s, history, total)
-        history.append({"role": "user", "content": user})
-        t0 = time.perf_counter()
         try:
+            user = fixed[i] if fixed else _sim(s, history, total)
+            history.append({"role": "user", "content": user})
+            t0 = time.perf_counter()
             resp = _reply(history, model, total)
-        except llm.StreamError as e:  # 잘림·빈 답: 이 시나리오만 멈춤(전체가 죽으면 결과 파일이 비고 크레딧만 씀)
-            error = f"StreamError: {e}"
+        except (llm.StreamError, openai.APIError) as e:
+            # 잘림·빈 답·시간 초과·5xx 연속: 이 시나리오만 멈춤(전체가 죽으면 결과 파일이 비고 크레딧만 씀). 크레딧 소진은 전체 중단
+            error = f"{type(e).__name__}: {e}"
             break
         seconds += time.perf_counter() - t0  # 채팅 응답만(시뮬레이터·채점 제외)
         history.append({"role": "assistant", "content": resp})

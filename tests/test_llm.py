@@ -184,25 +184,56 @@ def test_usage_cost_missing_is_zero():
     assert llm._usage(NS(prompt_tokens=1, completion_tokens=1)).cost == 0.0
 
 
-def test_retry_once_on_429(monkeypatch):
+@pytest.fixture
+def waits(monkeypatch):
+    # 재시도 대기를 실제로 자지 않고 기록만
+    out = []
+    monkeypatch.setattr(llm.time, "sleep", out.append)
+    return out
+
+
+def test_retry_once_on_429(monkeypatch, waits):
     reqs = install(monkeypatch, lambda: err(429), GOOD)
     assert list(stream_chat(MSGS))[-1][0] == "done"
     assert len(reqs) == 2
+    assert waits == [llm.RETRY_WAIT]  # 바로 다시 하면 대부분 또 실패
 
 
-def test_no_third_attempt(monkeypatch):
+def test_no_third_attempt(monkeypatch, waits):
     reqs = install(monkeypatch, lambda: err(503), lambda: err(503))
     with pytest.raises(openai.APIStatusError):
         list(stream_chat(MSGS))
     assert len(reqs) == 2
+    assert waits == [llm.RETRY_WAIT]  # 마지막 실패 뒤엔 안 기다림
 
 
-def test_retry_on_connection_error(monkeypatch):
+def test_retry_on_connection_error(monkeypatch, waits):
     def boom():
         raise httpx.ConnectError("x")
     reqs = install(monkeypatch, boom, GOOD)
     assert list(stream_chat(MSGS))[-1][0] == "done"
     assert len(reqs) == 2
+    assert waits == [llm.RETRY_WAIT]
+
+
+def test_midstream_timeout_is_stream_error(monkeypatch):
+    # 답 나오던 중 멈춤: httpx 예외가 그대로 나오면 평가가 못 잡음
+    def body():
+        yield f"data: {json.dumps(_c('안'))}\n\n".encode()
+        raise httpx.ReadTimeout("x")
+    install(monkeypatch, lambda: httpx.Response(200, headers={"content-type": "text/event-stream"}, content=body()))
+    with pytest.raises(StreamError):
+        list(stream_chat(MSGS))
+
+
+def test_no_retry_on_timeout(monkeypatch, waits):
+    # 60초 응답 없던 걸 또 60초 기다리지 않음
+    def slow():
+        raise httpx.ReadTimeout("x")
+    reqs = install(monkeypatch, slow, GOOD)
+    with pytest.raises(openai.APITimeoutError):
+        list(stream_chat(MSGS))
+    assert len(reqs) == 1 and waits == []
 
 
 def test_real_client_settings_without_keys(monkeypatch):
