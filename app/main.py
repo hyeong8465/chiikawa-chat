@@ -11,11 +11,15 @@ from fastapi.staticfiles import StaticFiles
 from app import messages
 from app.config import CHAT_MODEL, MAX_TOKENS_CONVERT, MAX_TOTAL_CHARS, MAX_ASSISTANT_CHARS, MAX_INPUT_CHARS, MAX_MESSAGES, SUGGEST_MODEL
 from app.llm import CreditExhausted, StreamError, complete, extract_json, score, stream_chat
-from app.prompt import build_messages, fill, load_character, speech_rules
+from app.prompt import build_messages, default_character, fill, speech_rules
 
 log = logging.getLogger(__name__)
 app = FastAPI()
 STATIC = Path(__file__).parent / "static"
+PROMPTS = Path(__file__).parent / "prompts"
+# 서버 뜰 때 한 번만 읽음(파일 고치면 서버 재시작)
+SUGGEST_TPL = (PROMPTS / "suggest.md").read_text(encoding="utf-8")
+CONVERT_TPL = (PROMPTS / "convert.md").read_text(encoding="utf-8")
 
 
 @app.get("/api/health")
@@ -25,7 +29,7 @@ def health():
 
 @app.get("/api/intro")
 def intro():
-    return {"text": load_character().intro}
+    return {"text": default_character().intro}
 
 
 def _bad(code: str, message: str = messages.ERROR_RETRY):
@@ -118,10 +122,9 @@ async def suggest(request: Request):
     # 줄바꿈·꺾쇠 치환: 사용자 글로 "하치와레: …" 화자 위조나 태그 탈출 방지
     clean = lambda c: c.replace("\n", " ").replace("<", "＜").replace(">", "＞")
     convo = "\n".join(f"{names[m['role']]}: {clean(m['content'])}" for m in body["messages"][-SUGGEST_RECENT:])
-    tpl = (Path(__file__).parent / "prompts" / "suggest.md").read_text(encoding="utf-8")
     try:
         # 동기 호출을 스레드로: async 안에서 직접 부르면 기다리는 동안 다른 요청 전부 멈춤
-        text, _ = await run_in_threadpool(complete, [{"role": "user", "content": fill(tpl, conversation=convo)}], SUGGEST_MODEL)
+        text, _ = await run_in_threadpool(complete, [{"role": "user", "content": fill(SUGGEST_TPL, conversation=convo)}], SUGGEST_MODEL)
         return {"suggestions": _parse_suggestions(text)}
     except Exception as e:
         # 본 대화에 영향 없게 숨김. 크레딧 소진 포함 모든 실패
@@ -159,10 +162,9 @@ async def convert(request: Request):
     text = text.strip()
     if len(text) > CONVERT_MAX_CHARS:
         return _bad("too_long", messages.TOO_LONG)
-    tpl = (Path(__file__).parent / "prompts" / "convert.md").read_text(encoding="utf-8")
-    rules = speech_rules(load_character())
+    rules = speech_rules(default_character())
     safe = text.replace("<", "＜").replace(">", "＞")  # </text>로 태그를 닫고 지시를 끼워 넣는 것 방지
-    prompt = fill(fill(tpl, speech_rules=rules), text=safe)  # 규칙 먼저: 사용자 입력 속 자리표시 재치환 방지
+    prompt = fill(fill(CONVERT_TPL, speech_rules=rules), text=safe)  # 규칙 먼저: 사용자 입력 속 자리표시 재치환 방지
     try:
         out, _ = await run_in_threadpool(complete, [{"role": "user", "content": prompt}], CHAT_MODEL, MAX_TOKENS_CONVERT, reasoning=True)
         return _parse_convert(out)

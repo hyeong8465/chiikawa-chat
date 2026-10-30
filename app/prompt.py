@@ -52,7 +52,7 @@ def load_character(dir: Path = CHARACTER_DIR) -> Character:
     )
 
 
-_default = _memo(load_character)
+default_character = _memo(load_character)  # 서비스용: 처음 한 번만 읽음(파일 고치면 서버 재시작)
 
 
 def _parts(content) -> list[dict]:
@@ -66,7 +66,7 @@ def build_messages(
     c: Character | None = None,
     cache: Literal["none", "system", "full"] = "full",
 ) -> list[dict]:
-    c = c or _default()
+    c = c or default_character()
     texts = [c.platform, c.character, c.chat_guide, c.examples, INTRO_LINE + c.intro]
     if c.episodes:
         texts.append(c.episodes)

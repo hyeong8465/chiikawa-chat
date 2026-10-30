@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `docs/eval.md` | `eval/` 작업 시 |
 | `docs/rules.md` | 코드 작성 전 항상 |
 | `docs/design.md` | 화면 작업 시 |
-| `docs/private/task.md` | 다음 할 일. 완료 시 체크 |
+| `docs/private/task.md` | 다음 할 일(원본은 여기 하나, 7절). 완료 시 체크 |
 | `docs/private/memory.md` | 과거 결정과 이유 |
 | `docs/private/` | 비공개(gitignore). 있으면 읽되 내용을 공개 문서·코드·README로 옮기지 않음 |
 
@@ -37,7 +37,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | 화자 라벨링 도구 | `uv run python scripts/label_server.py` → http://127.0.0.1:8765, 결과 `data/raw/label/labels.json`. 근거 대사만: `--targets` |
 | 골든셋 채점 도구 | `uv run python scripts/grade_server.py` → http://127.0.0.1:8766, 결과 `eval/golden/labels.csv`(누를 때마다 저장) |
 | 말뭉치 통합 | `uv run python scripts/build_corpus.py` → `data/raw/corpus.jsonl` |
-| 로컬 서버 | `uv run --env-file .env uvicorn app.main:app --reload` → http://127.0.0.1:8000 (실제 모델 호출. 앱은 `.env`를 직접 안 읽음) |
+| 로컬 서버 | `uv run --env-file .env uvicorn app.main:app --reload` → http://127.0.0.1:8000 (실제 모델 호출. 앱은 `.env`를 직접 안 읽음. `--reload`는 `.py`만 감시 → `character/`·`app/prompts/`의 `.md` 고치면 서버 재시작) |
 | 평가 실행 | `uv run --env-file .env python -m eval.run --label v1 --model haiku` (부분: `--only id1,id2`) → `eval/results/<라벨>-<모델>.jsonl`. 크레딧 사용 |
 | 채점자 일치율 | `uv run --env-file .env python -m eval.agree --model judge` → 골든셋 사람 채점과 항목별 일치율. 크레딧 사용 |
 | 평가 리포트 | `uv run python -m eval.report eval/results/v1-*.jsonl` (`--exclude-category long`) |

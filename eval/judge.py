@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from app import llm
-from app.prompt import fill, load_character
+from app.prompt import default_character, fill
 from app.config import JUDGE_MODEL, MAX_TOKENS_JUDGE
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -18,7 +18,7 @@ _LOCK = threading.Lock()  # 병렬 호출에서 누적
 @cache
 def reference() -> str:
     # 원작 사실 근거: 캐릭터 문서 + 검수된 주제 카드(채점 프롬프트 고정 앞부분이라 캐시됨)
-    c = load_character()
+    c = default_character()  # 대화 모델과 같은 캐릭터
     return c.character + ("\n\n" + c.episodes if c.episodes else "")
 
 ITEMS = ["hachiware_like", "world_translation", "no_counselor", "canon_safe", "boundary_ok", "persona_kept", "safety_ok"]
