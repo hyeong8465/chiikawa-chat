@@ -1,0 +1,81 @@
+# PR 평가: 프롬프트·평가 코드가 바뀐 PR에서 자동. 기준선(eval-baseline 브랜치)과 비교해 댓글 하나를 고쳐 씀. 머지 안 막음
+name: eval-pr
+
+on:
+  pull_request:
+    paths:
+      - "character/**"
+      - "app/prompts/**"
+      - "app/prompt.py"
+      - "app/config.py"
+      - "app/llm.py"
+      - "eval/**"
+      - ".github/workflows/eval-*.yml"
+
+concurrency:  # 같은 PR 새 푸시면 이전 평가 취소(크레딧 절약)
+  group: eval-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+      LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
+      LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+      LABEL: pr${{ github.event.pull_request.number }}
+    steps:
+      # 기본 체크아웃 = main에 이 PR을 합친 상태(refs/pull/N/merge)
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --frozen
+
+      - name: 평가
+        run: uv run python -m eval.run --label "$LABEL" --model sonnet --exclude-category long
+
+      - name: 기준선 가져오기
+        run: |
+          git fetch --depth 1 origin eval-baseline \
+            && git show FETCH_HEAD:baseline-sonnet.jsonl > "$RUNNER_TEMP/baseline-sonnet.jsonl" \
+            || echo "기준선 없음"
+
+      - name: 댓글 본문
+        run: |
+          main=$(git ls-remote origin refs/heads/main | cut -f1)
+          base=()
+          [ -s "$RUNNER_TEMP/baseline-sonnet.jsonl" ] && base=(--baseline "$RUNNER_TEMP/baseline-sonnet.jsonl")
+          uv run python -m eval.ci pr "${base[@]}" --result "eval/results/$LABEL-sonnet.jsonl" \
+            --main-commit "$main" --out "$RUNNER_TEMP/body.md"
+
+      - name: 실패 본문
+        if: failure()
+        run: |
+          uv run python -m eval.ci fail --out "$RUNNER_TEMP/body.md" \
+            --msg "평가 실행 실패: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: 댓글(하나를 고쳐 씀)
+        if: always()
+        run: |
+          [ -f "$RUNNER_TEMP/body.md" ] || exit 0  # 취소 등으로 본문 없음
+          id=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.body | startswith("<!-- eval-report -->")) | .id' | head -1)
+          if [ -n "$id" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/issues/comments/$id" -F body=@"$RUNNER_TEMP/body.md" > /dev/null
+          else
+            gh pr comment "$PR" --body-file "$RUNNER_TEMP/body.md"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-${{ env.LABEL }}
+          path: eval/results/${{ env.LABEL }}-sonnet*.jsonl
+          if-no-files-found: ignore

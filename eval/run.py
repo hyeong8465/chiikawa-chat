@@ -2,6 +2,7 @@
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -17,9 +18,9 @@ from app import llm
 from app.config import CHARACTER_DIR, MAX_TOKENS_CHAT, MODELS, PROMPT_VERSION, PROVIDER, REASONING, ROOT as REPO
 from app.llm import Usage
 from app.prompt import build_messages
-from eval import judge
+from eval import judge, pricing
 from eval.checks import check
-from eval.report import load
+from eval.report import _flat, load
 
 ROOT = Path(__file__).parent
 SCENARIOS = ROOT / "scenarios.yaml"
@@ -27,7 +28,7 @@ RESULTS = ROOT / "results"
 NO_FORMAT = ("format", "length")  # safety: 위기 대응은 지문 없이 길게 말해도 됨
 SIM_MODEL = MODELS["haiku"]
 CHAR_FILES = ("platform.md", "character.md", "chat_guide.md", "examples.md", "intro.md", "episodes.yaml")
-META_IGNORE = ("time", "commit", "dirty")  # 이어 돌릴 때 비교에서 뺌(커밋만 해도 바뀜. 내용 변경은 해시가 잡음)
+META_IGNORE = ("time", "commit", "dirty", "prices")  # 이어 돌릴 때 비교에서 뺌(커밋만 해도 바뀜. 내용 변경은 해시가 잡음)
 
 
 def _hash(text: str) -> str:
@@ -54,20 +55,27 @@ def judge_meta() -> dict:
             "reference": _hash(judge.reference()), "code": _file_hash(Path(judge.__file__))}
 
 
-def run_meta(model: str, scenarios: list[dict], only: list[str] | None) -> dict:
+def run_meta(model: str, scenarios: list[dict], only: list[str] | None, exclude: list[str] | None = None) -> dict:
     # 결과 파일 첫 줄: 이 실행을 다시 만들거나 다른 실행과 비교하는 데 필요한 것. 해시는 파일 내용 기준
     return {
         "prompts": {f.split(".")[0]: _file_hash(CHARACTER_DIR / f) for f in CHAR_FILES},
         "judge": judge_meta(),
         "sim": {"model": SIM_MODEL, "prompt": _file_hash(judge.PROMPTS_DIR / "user_sim.md")},
-        "scenarios": {"hash": _file_hash(SCENARIOS), "only": sorted(only or []), "count": len(scenarios)},
+        "scenarios": {"hash": _file_hash(SCENARIOS), "only": sorted(only or []),
+                      "exclude": sorted(exclude or []), "count": len(scenarios)},
         "checks": _file_hash(ROOT / "checks.py"),
         "gen": {"model": MODELS[model], "max_tokens": MAX_TOKENS_CHAT, "reasoning": REASONING, "provider": PROVIDER,
                 "assembly": _file_hash(REPO / "app" / "prompt.py")},  # 시스템 프롬프트 조립(build_messages)
         "commit": PROMPT_VERSION,
         "dirty": _dirty(),
         "time": datetime.now().isoformat(timespec="seconds"),
+        "prices": pricing.fetch([MODELS[model], SIM_MODEL, judge.JUDGE_MODEL]),  # 절감 계산용(단가 바뀌어도 재현)
     }
+
+
+def eval_tags(label: str) -> tuple[str, ...]:
+    # Langfuse에서 운영 기록과 가르기. GitHub Actions면 ci, 손으로 돌리면 manual
+    return ("eval", label, "ci" if os.getenv("GITHUB_ACTIONS") else "manual")
 
 
 def _zero() -> dict:
@@ -81,7 +89,7 @@ def _add(total: dict, u: Usage) -> None:
 
 def _reply(history: list[dict], model: str, total: dict) -> str:
     text = ""
-    for kind, data in llm.stream_chat(build_messages(history), model):
+    for kind, data in llm.stream_chat(build_messages(history), model, tags=("eval:chat",)):
         if kind == "delta":
             text += data
         else:
@@ -91,7 +99,7 @@ def _reply(history: list[dict], model: str, total: dict) -> str:
 
 def _sim(s: dict, history: list[dict], total: dict) -> str:
     p = judge.prompt("user_sim", note=s.get("note", ""), conversation=judge.format_conversation(history))
-    out, u = llm.complete([{"role": "user", "content": p}], SIM_MODEL)
+    out, u = llm.complete([{"role": "user", "content": p}], SIM_MODEL, tags=("eval:sim",))
     _add(total, u)
     return out.strip()
 
@@ -134,13 +142,6 @@ def run_one(s: dict, model: str) -> dict:
     return row
 
 
-def _flat(d: dict, pre: str = "") -> dict:
-    out = {}
-    for k, v in d.items():
-        out |= _flat(v, f"{pre}{k}.") if isinstance(v, dict) else {pre + k: v}
-    return out
-
-
 def _diff(a: dict, b: dict) -> list[str]:
     fa, fb = _flat({k: v for k, v in a.items() if k not in META_IGNORE}), _flat({k: v for k, v in b.items() if k not in META_IGNORE})
     return sorted(k for k in fa.keys() | fb.keys() if fa.get(k) != fb.get(k))
@@ -155,13 +156,16 @@ def _write(f, row: dict) -> None:
     f.flush()
 
 
-def run(label: str, model: str, scenario_ids: list[str] | None = None, resume: bool = False) -> Path:
+def run(label: str, model: str, scenario_ids: list[str] | None = None, resume: bool = False,
+        exclude: list[str] | None = None) -> Path:
     scenarios = yaml.safe_load(SCENARIOS.read_text(encoding="utf-8"))
     if scenario_ids:
         scenarios = [s for s in scenarios if s["id"] in scenario_ids]
+    if exclude:  # 범주 빼기(CI: 긴 대화는 R1 고정 대화 전까지 뺌)
+        scenarios = [s for s in scenarios if s["category"] not in exclude]
     RESULTS.mkdir(parents=True, exist_ok=True)
     path = RESULTS / f"{label}-{model}.jsonl"
-    meta = run_meta(model, scenarios, scenario_ids)
+    meta = run_meta(model, scenarios, scenario_ids, exclude)
     done: list[dict] = []
     if resume and path.exists():
         old, rows = load(path)
@@ -180,7 +184,8 @@ def run(label: str, model: str, scenario_ids: list[str] | None = None, resume: b
     cost = 0.0
 
     def one(s: dict) -> dict:
-        row = run_one(s, MODELS[model])
+        with llm.tagging(*eval_tags(label)):  # 스레드마다 따로
+            row = run_one(s, MODELS[model])
         return {"id": row.pop("id"), "model": MODELS[model], "label": label, "prompt_version": PROMPT_VERSION, **row}
 
     # 끝난 시나리오부터 바로 한 줄씩(중간에 멈춰도 끝난 건 남음). 줄 순서 = 끝난 순서
@@ -223,6 +228,10 @@ def rejudge(path: Path) -> Path:
                            "source": path.name}
 
     def one(r: dict) -> dict:
+        with llm.tagging(*eval_tags(r.get("label", path.stem))):
+            return _one(r)
+
+    def _one(r: dict) -> dict:
         if "error" in r:  # 생성 오류로 끊긴 대화는 채점 안 함(run_one과 같게)
             return r
         history = []
@@ -251,12 +260,14 @@ if __name__ == "__main__":
     ap.add_argument("--label")
     ap.add_argument("--model", choices=[k for k in MODELS if not k.startswith("judge")])
     ap.add_argument("--only", help="시나리오 id 쉼표 구분")
+    ap.add_argument("--exclude-category", help="뺄 범주 쉼표 구분(예: long)")
     ap.add_argument("--resume", action="store_true", help="같은 실행 정보면 끝난 시나리오 건너뛰고 이어서")
     ap.add_argument("--rejudge", type=Path, help="결과 파일의 채점만 다시")
     a = ap.parse_args()
     if a.rejudge:
         rejudge(a.rejudge)
     elif a.label and a.model:
-        run(a.label, a.model, a.only.split(",") if a.only else None, a.resume)
+        run(a.label, a.model, a.only.split(",") if a.only else None, a.resume,
+            a.exclude_category.split(",") if a.exclude_category else None)
     else:
         ap.error("--label과 --model, 또는 --rejudge")

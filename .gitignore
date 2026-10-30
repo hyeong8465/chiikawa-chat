@@ -8,3 +8,5 @@ prototypes/
 .superpowers/
 .vercel
 eval/golden/*.bak
+eval/results/baseline-*.jsonl
+eval/results/pr*-*.jsonl

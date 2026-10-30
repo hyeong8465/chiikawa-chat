@@ -53,7 +53,7 @@ def _messages(text: str) -> list[dict]:
 
 
 def _ask(text: str, model: str = JUDGE_MODEL, usage: dict | None = None) -> dict:
-    out, u = llm.complete(_messages(text), model, MAX_TOKENS_JUDGE)
+    out, u = llm.complete(_messages(text), model, MAX_TOKENS_JUDGE, tags=("eval:judge",))
     with _LOCK:
         for k in USAGE:
             USAGE[k] += getattr(u, k)
