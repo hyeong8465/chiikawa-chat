@@ -98,7 +98,5 @@ def speech_rules(c: Character) -> str:
 
 
 def fill(template: str, **values: str) -> str:
-    # 프롬프트에 JSON 예시의 중괄호가 있어 str.format 대신 자리표시만 치환
-    for k, v in values.items():
-        template = template.replace("{" + k + "}", v)
-    return template
+    # 프롬프트에 JSON 예시의 중괄호가 있어 str.format 대신 자리표시만 치환. 한 번에 훑어 넣은 값은 다시 안 바뀜
+    return re.sub(r"\{(\w+)\}", lambda m: values.get(m[1], m[0]), template)

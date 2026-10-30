@@ -15,6 +15,7 @@ def test_stream_error_stops_only_that_scenario(monkeypatch):
     monkeypatch.setattr(run.judge, "checklist", lambda *a, **k: pytest.fail("채점하면 안 됨"))
     row = run.run_one({"id": "x", "category": "daily", "turns": ["안녕", "뭐해"]}, "m")
     assert row["judge"] == {"error": "StreamError: finish_reason=length"}
+    assert row["error"] == "StreamError: finish_reason=length"  # 생성 오류 표시(채점 오류와 구분)
     assert row["responses"] == []
 
 

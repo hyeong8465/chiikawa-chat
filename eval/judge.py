@@ -52,11 +52,14 @@ def _messages(text: str) -> list[dict]:
     return [{"role": "system", "content": fixed}, {"role": "user", "content": rest}]
 
 
-def _ask(text: str, model: str = JUDGE_MODEL) -> dict:
+def _ask(text: str, model: str = JUDGE_MODEL, usage: dict | None = None) -> dict:
     out, u = llm.complete(_messages(text), model, MAX_TOKENS_JUDGE)
     with _LOCK:
         for k in USAGE:
             USAGE[k] += getattr(u, k)
+    if usage is not None:  # 호출한 쪽이 시나리오별로 따로 모을 때
+        for k in usage:
+            usage[k] += getattr(u, k)
     res = llm.extract_json(out)
     if not isinstance(res, dict):
         raise ValueError("채점 결과가 객체가 아님")
@@ -64,12 +67,12 @@ def _ask(text: str, model: str = JUDGE_MODEL) -> dict:
 
 
 def checklist(scenario: dict, response: str, conversation: str = "", with_reason: bool = False,
-              model: str = JUDGE_MODEL) -> dict:
+              model: str = JUDGE_MODEL, usage: dict | None = None) -> dict:
     items = CATEGORY_ITEMS[scenario["category"]]
     res = _ask(prompt(
         "judge_checklist", reference=reference(), category=scenario["category"], note=scenario.get("note", ""),
         conversation=conversation, response=response, items="\n".join(items),
-    ), model)
+    ), model, usage)
     out = {i: bool(res[i]) for i in items}
     if with_reason:
         out["reason"] = str(res.get("reason", ""))

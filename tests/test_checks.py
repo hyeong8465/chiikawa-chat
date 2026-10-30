@@ -20,7 +20,11 @@ def test_hotline_allowed(): assert check("자살예방상담전화 109에 전화
 def test_markdown(): assert not check("*끄덕*\n- 첫째\n- 둘째")["no_markdown"]
 def test_bold(): assert not check("*끄덕* **좋아**")["no_markdown"]
 def test_emoji(): assert not check("*끄덕* 좋아 😊")["no_markdown"]
-def test_address(): assert not check("*끄덕* 친구야, 괜찮아.")["no_address"]
+def test_address(): assert not check("*끄덕* 너님, 괜찮아.")["no_address"]
+def test_friend_about_others_ok():  # v1-haiku long-02, v1.4-sonnet canon-06 오탐
+    assert check("*끄덕* 그래도 친구야, 응.")["no_address"]
+    assert check("*카메라를 내려놓는다* 단짝이야, 제일 친한 친구!")["no_address"]
+def test_new_friend_still_caught(): assert not check("*끄덕* 새로 온 친구구나.")["no_address"]
 def test_friend_origin_ok(): assert check("*끄덕* 친구랑 라면 먹었어")["no_address"]
 def test_friends_ok(): assert check("*끄덕* 친구들이랑 갔어.")["no_address"]
 def test_leak(): assert not check("*끄덕* 플랫폼 영역 응답 형식")["no_leak"]

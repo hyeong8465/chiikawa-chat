@@ -1,6 +1,6 @@
 import pytest
 
-from app.prompt import build_messages, load_character, speech_rules
+from app.prompt import build_messages, fill, load_character, speech_rules
 
 CARDS = """
 - arc: 제초 검정
@@ -125,3 +125,8 @@ def test_speech_rules_drops_chat_only():
 def test_speech_rules_missing(cdir):
     (cdir / "character.md").write_text("CHARACTER")
     assert speech_rules(load_character(cdir)) == ""
+
+
+def test_fill_does_not_refill_values():
+    # 응답에 자리표시 글자가 있어도 다시 안 바뀜
+    assert fill("{response}\n{items}", response="글자 {items} 포함", items="A") == "글자 {items} 포함\nA"
