@@ -73,7 +73,7 @@ async def chat(request: Request):
 
     def events():
         try:
-            for kind, val in stream_chat(build_messages(history)):
+            for kind, val in stream_chat(build_messages(history), tags=("chat",)):
                 if kind == "delta":
                     yield _sse("delta", {"text": val})
                 else:
@@ -124,7 +124,7 @@ async def suggest(request: Request):
     convo = "\n".join(f"{names[m['role']]}: {clean(m['content'])}" for m in body["messages"][-SUGGEST_RECENT:])
     try:
         # 동기 호출을 스레드로: async 안에서 직접 부르면 기다리는 동안 다른 요청 전부 멈춤
-        text, _ = await run_in_threadpool(complete, [{"role": "user", "content": fill(SUGGEST_TPL, conversation=convo)}], SUGGEST_MODEL)
+        text, _ = await run_in_threadpool(complete, [{"role": "user", "content": fill(SUGGEST_TPL, conversation=convo)}], SUGGEST_MODEL, tags=("suggest",))
         return {"suggestions": _parse_suggestions(text)}
     except Exception as e:
         # 본 대화에 영향 없게 숨김. 크레딧 소진 포함 모든 실패
@@ -166,7 +166,7 @@ async def convert(request: Request):
     safe = text.replace("<", "＜").replace(">", "＞")  # </text>로 태그를 닫고 지시를 끼워 넣는 것 방지
     prompt = fill(fill(CONVERT_TPL, speech_rules=rules), text=safe)  # 규칙 먼저: 사용자 입력 속 자리표시 재치환 방지
     try:
-        out, _ = await run_in_threadpool(complete, [{"role": "user", "content": prompt}], CHAT_MODEL, MAX_TOKENS_CONVERT, reasoning=True)
+        out, _ = await run_in_threadpool(complete, [{"role": "user", "content": prompt}], CHAT_MODEL, MAX_TOKENS_CONVERT, reasoning=True, tags=("convert",))
         return _parse_convert(out)
     except CreditExhausted:
         return JSONResponse({"code": "credit", "message": messages.CREDIT_EXHAUSTED}, status_code=502)

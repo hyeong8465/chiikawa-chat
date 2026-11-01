@@ -8,6 +8,7 @@ from pathlib import Path
 
 import yaml
 
+from app import llm
 from app.config import MODELS
 from eval import judge
 
@@ -39,6 +40,10 @@ def main(alias: str) -> None:
     path = RESULTS / f"golden-{alias}.jsonl"
 
     def one(g: dict) -> dict:
+        with llm.tagging("eval", "eval:agree", "manual"):
+            return _one(g)
+
+    def _one(g: dict) -> dict:
         try:
             return judge.checklist(g, g["response"], g.get("conversation", ""), with_reason=True, model=MODELS[alias])
         except Exception as e:  # 한 개 실패가 전체를 멈추지 않게

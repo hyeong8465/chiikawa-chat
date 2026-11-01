@@ -1,5 +1,6 @@
 import json
 
+import openai
 import pytest
 
 from app import llm
@@ -28,7 +29,7 @@ def fake(monkeypatch, outs):
     calls = []
     it = iter(outs)
 
-    def f(messages, model, max_tokens=None):
+    def f(messages, model, max_tokens=None, **k):
         calls.append((messages, model))
         return next(it), Usage(1, 0, 0, 1, 0.5)
 
@@ -85,7 +86,7 @@ def test_fill_leaves_braces():
 
 
 def fake_stream(monkeypatch):
-    def f(messages, model, max_tokens=None):
+    def f(messages, model, max_tokens=None, **k):
         yield "delta", "*끄덕* 응."
         yield "done", {"usage": Usage(10, 2, 0, 3, 0.25), "trace_id": "t"}
 
@@ -109,7 +110,7 @@ def meta_of(p):
 
 
 def test_run_multiturn_and_safety(monkeypatch, tmp_path):
-    fake_stream(monkeypatch)
+    fake_stream(monkeypatch), ok_judge(monkeypatch)
     scen(monkeypatch, tmp_path, [
         {"id": "d", "category": "daily", "turns": ["a", "b"], "note": ""},
         {"id": "s", "category": "safety", "turns": ["c"], "note": ""},
@@ -121,12 +122,13 @@ def test_run_multiturn_and_safety(monkeypatch, tmp_path):
     assert d["usage"]["cost"] == 0.5 and d["model"] == "anthropic/claude-haiku-5.5"
     assert "format" in d["checks"][0] and "format" not in s["checks"][0] and "length" not in s["checks"][0]
     assert "no_counselor" in s["checks"][0]
-    assert "judge" in d  # 채점 실패(가짜 complete 없음)여도 실행은 계속, 기록은 남음
+    assert d["judge"] == {"ok": True}
 
 
 def test_run_only_and_long(monkeypatch, tmp_path, prompts):
     fake_stream(monkeypatch)
     fake(monkeypatch, ["첫", "둘"])  # user_sim
+    ok_judge(monkeypatch)
     scen(monkeypatch, tmp_path, [
         {"id": "d", "category": "daily", "turns": ["a"], "note": ""},
         {"id": "l", "category": "long", "length": 2, "note": ""},
@@ -137,7 +139,7 @@ def test_run_only_and_long(monkeypatch, tmp_path, prompts):
 
 
 def test_run_writes_meta_first(monkeypatch, tmp_path):
-    fake_stream(monkeypatch)
+    fake_stream(monkeypatch), ok_judge(monkeypatch)
     scen(monkeypatch, tmp_path, [{"id": "d", "category": "daily", "turns": ["a"], "note": ""},
                                  {"id": "e", "category": "daily", "turns": ["b"], "note": ""}])
     m = meta_of(run.run("v1", "haiku"))
@@ -186,7 +188,7 @@ def count_stream(monkeypatch, fail_on=()):
     # 생성 횟수를 세는 가짜 stream. fail_on의 사용자 말이면 크레딧 소진
     calls = []
 
-    def f(messages, model, max_tokens=None):
+    def f(messages, model, max_tokens=None, **k):
         c = messages[-1]["content"]
         calls.append(c if isinstance(c, str) else c[0]["text"])  # 마지막 메시지는 캐시 표시가 붙은 블록
         if calls[-1] in fail_on:
@@ -289,7 +291,7 @@ def test_credit_keeps_rows_already_running(monkeypatch, tmp_path):
     ok_judge(monkeypatch)
     scen(monkeypatch, tmp_path, TWO + [{"id": "f", "category": "daily", "turns": ["c"], "note": ""}])
 
-    def f(messages, model, max_tokens=None):
+    def f(messages, model, max_tokens=None, **k):
         c = messages[-1]["content"]
         text = c if isinstance(c, str) else c[0]["text"]
         if text == "b":
@@ -313,6 +315,70 @@ def test_rejudge_skips_gen_error_rows(monkeypatch, tmp_path):
     write_rows(p, {}, [row])
     (r,) = read(run.rejudge(p))
     assert r["judge"] == {"error": "StreamError: x"}
+
+
+def test_eval_tags_ci_manual(monkeypatch):
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    assert run.eval_tags("v1") == ("eval", "v1", "manual")
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert run.eval_tags("v1") == ("eval", "v1", "ci")
+
+
+def test_tags_inside_threads(monkeypatch, tmp_path):
+    # 평가는 스레드 병렬. 각 호출 태그에 eval·라벨·단계가 붙어야 함
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    seen = []
+
+    def f(messages, model, max_tokens=None, tags=()):
+        seen.append(llm._TAGS.get() + tuple(tags))
+        yield "delta", "*끄덕* 응."
+        yield "done", {"usage": Usage(1, 0, 0, 1, 0.1), "trace_id": "t"}
+    monkeypatch.setattr(llm, "stream_chat", f)
+    ok_judge(monkeypatch), scen(monkeypatch, tmp_path, TWO + [{"id": "f", "category": "daily", "turns": ["c"], "note": ""}])
+    run.run("v1", "haiku")
+    assert len(seen) == 3 and all(t == ("eval", "v1", "manual", "eval:chat") for t in seen)
+
+
+def test_judge_tag(prompts, monkeypatch):
+    seen = []
+    monkeypatch.setattr(llm, "complete", lambda m, model, mt=None, tags=(): seen.append(tags) or (json.dumps({i: True for i in judge.ITEMS}), Usage(0, 0, 0, 0, 0)))
+    judge.checklist(S, "a")
+    assert seen == [("eval:judge",)]
+
+
+def test_run_exclude_category(monkeypatch, tmp_path):
+    ok_judge(monkeypatch), count_stream(monkeypatch)
+    scen(monkeypatch, tmp_path, TWO + [{"id": "l", "category": "long", "length": 2, "note": ""}])
+    p = run.run("v1", "haiku", exclude=["long"])
+    assert sorted(r["id"] for r in read(p)) == ["d", "e"]
+    m = meta_of(p)
+    assert m["scenarios"]["exclude"] == ["long"] and m["scenarios"]["count"] == 2
+    with pytest.raises(SystemExit, match="scenarios"):  # 다른 세트로 이어 돌리기 거부
+        run.run("v1", "haiku", resume=True)
+
+
+def test_auth_error_stops_whole_run(monkeypatch, tmp_path):
+    # 키·권한·모델 이름 오류는 모든 시나리오가 똑같이 실패 → 39번 시도하지 말고 전체 중단(CI 실패로 보이게)
+    import httpx as h
+    def f(messages, model, max_tokens=None, tags=()):
+        raise openai.AuthenticationError("401", response=h.Response(401, request=h.Request("POST", "http://t")), body=None)
+        yield
+    monkeypatch.setattr(llm, "stream_chat", f)
+    ok_judge(monkeypatch), scen(monkeypatch, tmp_path, TWO)
+    with pytest.raises(openai.AuthenticationError):
+        run.run("v1", "haiku")
+
+
+def test_all_errors_fail_run(monkeypatch, tmp_path):
+    # 하나도 못 끝냈으면 실행 실패(정상 결과처럼 저장·댓글 안 되게)
+    def f(messages, model, max_tokens=None, tags=()):
+        raise llm.StreamError("finish_reason=length")
+        yield
+    monkeypatch.setattr(llm, "stream_chat", f)
+    ok_judge(monkeypatch), scen(monkeypatch, tmp_path, TWO)
+    with pytest.raises(SystemExit, match="전부 오류"):
+        run.run("v1", "haiku")
+    assert len(read(tmp_path / "res" / "v1-haiku.jsonl")) == 2  # 원인 보라고 파일은 남김
 
 
 def test_agree_table_directions():
@@ -356,3 +422,18 @@ def test_rejudge_twice_same_day(monkeypatch, tmp_path):
 def test_messages_split_fixed_part():
     assert judge._messages("고정\n===\n변함") == [{"role": "system", "content": "고정"}, {"role": "user", "content": "변함"}]
     assert judge._messages("하나") == [{"role": "user", "content": "하나"}]
+
+
+def test_moderation_403_is_row_error(monkeypatch, tmp_path):
+    # 403은 입력 하나가 걸러진 것(제공사 검열)일 수 있음 → 그 시나리오만 오류, 실행은 계속(CI 2026-11-01 safety-02)
+    import httpx as h
+    def f(messages, model, max_tokens=None, tags=()):
+        if "'a'" in str(messages[-1]):
+            raise openai.PermissionDeniedError("403 flagged", response=h.Response(403, request=h.Request("POST", "http://t")), body=None)
+        yield "delta", "*끄덕* 응."
+        yield "done", {"usage": Usage(1, 0, 0, 1, 0.1), "trace_id": "t"}
+    monkeypatch.setattr(llm, "stream_chat", f)
+    ok_judge(monkeypatch), scen(monkeypatch, tmp_path, TWO)
+    run.run("v1", "haiku")
+    rows = read(tmp_path / "res" / "v1-haiku.jsonl")
+    assert sorted(bool(r.get("error")) for r in rows) == [False, True]
