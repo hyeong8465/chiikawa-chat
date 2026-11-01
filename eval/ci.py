@@ -11,15 +11,18 @@ def judge_changed(base_meta: dict | None, pr_meta: dict) -> bool:
     return (base_meta or {}).get("judge") != pr_meta.get("judge")
 
 
-def pr_body(base: Path | None, pr: Path, main_commit: str | None) -> str:
+def pr_body(base: Path | None, pr: Path, stale: bool = False) -> str:
     if base is None or not base.exists():
         pm, rows = load(pr)
         return "\n".join([MARK, "### 🧪 평가 결과 (참고용, 머지 막지 않음)", "", "> 기준선 없음: 비교 없이 이 PR 결과만",
                           "", summarize([pr]), "", "<details><summary>단계별 비용·캐시</summary>", "",
                           cache_table(pm, rows), "", "</details>"])
-    if judge_changed(load(base)[0], load(pr)[0]):
+    bm, pm = load(base)[0] or {}, load(pr)[0] or {}
+    if bm.get("checks") != pm.get("checks"):
+        base = run.recheck(base)  # 규칙 검사가 바뀜: 기준선 답에 지금 규칙(크레딧 안 듦)
+    if judge_changed(bm, pm):
         base = run.rejudge(base)  # 기준선 답은 그대로, 채점만 PR 채점자로
-    return compare(base, pr, main_commit)
+    return compare(base, pr, stale)
 
 
 def failure_body(msg: str) -> str:
@@ -33,11 +36,11 @@ if __name__ == "__main__":
     p = sub.add_parser("pr")
     p.add_argument("--baseline", type=Path)
     p.add_argument("--result", type=Path, required=True)
-    p.add_argument("--main-commit")
+    p.add_argument("--stale", action="store_true", help="기준선 뒤로 main의 평가 대상 파일이 바뀜(워크플로가 git으로 판단)")
     p.add_argument("--out", type=Path, required=True)
     f = sub.add_parser("fail")
     f.add_argument("--msg", required=True)
     f.add_argument("--out", type=Path, required=True)
     a = ap.parse_args()
-    body = pr_body(a.baseline, a.result, a.main_commit) if a.cmd == "pr" else failure_body(a.msg)
+    body = pr_body(a.baseline, a.result, a.stale) if a.cmd == "pr" else failure_body(a.msg)
     a.out.write_text(body, encoding="utf-8")

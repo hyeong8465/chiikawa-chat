@@ -21,7 +21,7 @@ def test_judge_changed():
 
 def test_pr_body_no_baseline(tmp_path):
     pr = write(tmp_path / "p.jsonl", [ROW], {"commit": "c2", "judge": J})
-    t = ci.pr_body(None, pr, "c2")
+    t = ci.pr_body(None, pr)
     assert t.startswith(MARK) and "기준선 없음" in t and "| x |" in t
 
 
@@ -34,7 +34,7 @@ def test_pr_body_rejudges_when_judge_changed(tmp_path, monkeypatch):
         called.append(path)
         return write(tmp_path / "b.rejudge.jsonl", [ROW], {"commit": "c1", "judge": J, "source": "b.jsonl"})
     monkeypatch.setattr(ci.run, "rejudge", fake)
-    t = ci.pr_body(base, pr, "c1")
+    t = ci.pr_body(base, pr)
     assert called == [base] and "기준선 다시 채점: 함(b.jsonl)" in t
 
 
@@ -42,9 +42,20 @@ def test_pr_body_same_judge_no_rejudge(tmp_path, monkeypatch):
     base = write(tmp_path / "b.jsonl", [ROW], {"commit": "c1", "judge": J})
     pr = write(tmp_path / "p.jsonl", [ROW], {"commit": "c2", "judge": J})
     monkeypatch.setattr(ci.run, "rejudge", lambda p: (_ for _ in ()).throw(AssertionError("다시 채점 안 함")))
-    assert "기준선 다시 채점: 안 함" in ci.pr_body(base, pr, "c1")
+    assert "기준선 다시 채점: 안 함" in ci.pr_body(base, pr)
 
 
 def test_failure_body_marker():
     t = ci.failure_body("CreditExhausted")
     assert t.startswith(MARK) and "CreditExhausted" in t and "실패" in t
+
+
+def test_pr_body_rechecks_when_rules_changed(tmp_path, monkeypatch):
+    # 규칙 검사가 바뀌면 기준선 답에 지금 규칙을 다시 적용(크레딧 안 듦). 규칙 차이로 가짜 회귀 안 나게
+    row = ROW | {"turns": ["안녕"], "responses": ["*끄덕* 응."], "checks": [{"format": False}]}
+    base = write(tmp_path / "b.jsonl", [row], {"commit": "c1", "judge": J, "checks": "old"})
+    pr = write(tmp_path / "p.jsonl", [row | {"checks": [{"format": True}]}], {"commit": "c2", "judge": J, "checks": "new"})
+    monkeypatch.setattr(ci.run, "check", lambda resp: {"format": True})
+    t = ci.pr_body(base, pr)
+    assert "나빠짐 0" in t and "나아짐 0" in t and "규칙 다시 적용" in t
+

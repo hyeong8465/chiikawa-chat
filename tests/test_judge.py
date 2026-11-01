@@ -1,5 +1,6 @@
 import json
 
+import openai
 import pytest
 
 from app import llm
@@ -109,7 +110,7 @@ def meta_of(p):
 
 
 def test_run_multiturn_and_safety(monkeypatch, tmp_path):
-    fake_stream(monkeypatch)
+    fake_stream(monkeypatch), ok_judge(monkeypatch)
     scen(monkeypatch, tmp_path, [
         {"id": "d", "category": "daily", "turns": ["a", "b"], "note": ""},
         {"id": "s", "category": "safety", "turns": ["c"], "note": ""},
@@ -121,12 +122,13 @@ def test_run_multiturn_and_safety(monkeypatch, tmp_path):
     assert d["usage"]["cost"] == 0.5 and d["model"] == "anthropic/claude-haiku-5.5"
     assert "format" in d["checks"][0] and "format" not in s["checks"][0] and "length" not in s["checks"][0]
     assert "no_counselor" in s["checks"][0]
-    assert "judge" in d  # 채점 실패(가짜 complete 없음)여도 실행은 계속, 기록은 남음
+    assert d["judge"] == {"ok": True}
 
 
 def test_run_only_and_long(monkeypatch, tmp_path, prompts):
     fake_stream(monkeypatch)
     fake(monkeypatch, ["첫", "둘"])  # user_sim
+    ok_judge(monkeypatch)
     scen(monkeypatch, tmp_path, [
         {"id": "d", "category": "daily", "turns": ["a"], "note": ""},
         {"id": "l", "category": "long", "length": 2, "note": ""},
@@ -137,7 +139,7 @@ def test_run_only_and_long(monkeypatch, tmp_path, prompts):
 
 
 def test_run_writes_meta_first(monkeypatch, tmp_path):
-    fake_stream(monkeypatch)
+    fake_stream(monkeypatch), ok_judge(monkeypatch)
     scen(monkeypatch, tmp_path, [{"id": "d", "category": "daily", "turns": ["a"], "note": ""},
                                  {"id": "e", "category": "daily", "turns": ["b"], "note": ""}])
     m = meta_of(run.run("v1", "haiku"))
@@ -328,7 +330,7 @@ def test_tags_inside_threads(monkeypatch, tmp_path):
     seen = []
 
     def f(messages, model, max_tokens=None, tags=()):
-        seen.append(llm.current_tags() + tuple(tags))
+        seen.append(llm._TAGS.get() + tuple(tags))
         yield "delta", "*끄덕* 응."
         yield "done", {"usage": Usage(1, 0, 0, 1, 0.1), "trace_id": "t"}
     monkeypatch.setattr(llm, "stream_chat", f)
@@ -353,6 +355,30 @@ def test_run_exclude_category(monkeypatch, tmp_path):
     assert m["scenarios"]["exclude"] == ["long"] and m["scenarios"]["count"] == 2
     with pytest.raises(SystemExit, match="scenarios"):  # 다른 세트로 이어 돌리기 거부
         run.run("v1", "haiku", resume=True)
+
+
+def test_auth_error_stops_whole_run(monkeypatch, tmp_path):
+    # 키·권한·모델 이름 오류는 모든 시나리오가 똑같이 실패 → 39번 시도하지 말고 전체 중단(CI 실패로 보이게)
+    import httpx as h
+    def f(messages, model, max_tokens=None, tags=()):
+        raise openai.AuthenticationError("401", response=h.Response(401, request=h.Request("POST", "http://t")), body=None)
+        yield
+    monkeypatch.setattr(llm, "stream_chat", f)
+    ok_judge(monkeypatch), scen(monkeypatch, tmp_path, TWO)
+    with pytest.raises(openai.AuthenticationError):
+        run.run("v1", "haiku")
+
+
+def test_all_errors_fail_run(monkeypatch, tmp_path):
+    # 하나도 못 끝냈으면 실행 실패(정상 결과처럼 저장·댓글 안 되게)
+    def f(messages, model, max_tokens=None, tags=()):
+        raise llm.StreamError("finish_reason=length")
+        yield
+    monkeypatch.setattr(llm, "stream_chat", f)
+    ok_judge(monkeypatch), scen(monkeypatch, tmp_path, TWO)
+    with pytest.raises(SystemExit, match="전부 오류"):
+        run.run("v1", "haiku")
+    assert len(read(tmp_path / "res" / "v1-haiku.jsonl")) == 2  # 원인 보라고 파일은 남김
 
 
 def test_agree_table_directions():

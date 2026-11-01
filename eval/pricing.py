@@ -9,8 +9,9 @@ def fetch(models: list[str]) -> dict[str, dict] | None:
     # 토큰당 달러. 못 가져오면 None(절감 칸만 "-", 실행은 계속). 토큰 수에 따른 할증(overrides)은 무시: 우리 입력은 그 문턱 아래
     try:
         data = httpx.get(URL, timeout=10).raise_for_status().json()["data"]
-        out = {m["id"]: {k: float(m["pricing"].get(f, 0) or 0) for k, f in _FIELDS.items()}
-               for m in data if m["id"] in models}
+        # 칸이 하나라도 없으면 그 모델은 단가 없음("-"). 0으로 채우면 절감이 부풀려짐
+        out = {m["id"]: {k: float(m["pricing"][f]) for k, f in _FIELDS.items()}
+               for m in data if m["id"] in models and all(f in m["pricing"] for f in _FIELDS.values())}
     except Exception:
         return None
     return out or None

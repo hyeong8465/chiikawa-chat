@@ -110,7 +110,21 @@ def _flat(d: dict, pre: str = "") -> dict:
     return out
 
 
-def compare(base: Path, pr: Path, main_commit: str | None = None) -> str:
+# 실행 정보 비교에서 뺄 칸: 시각·커밋·수정 중(커밋만 해도 바뀜, 내용 변경은 해시가 잡음)·단가. 다시 채점·규칙 재적용 표시
+META_IGNORE = ("time", "commit", "dirty", "prices", "source", "rechecked")
+
+
+def _diff(a: dict, b: dict) -> list[str]:
+    fa = _flat({k: v for k, v in a.items() if k not in META_IGNORE})
+    fb = _flat({k: v for k, v in b.items() if k not in META_IGNORE})
+    return sorted(k for k in fa.keys() | fb.keys() if fa.get(k) != fb.get(k))
+
+
+def _cell(text: str) -> str:  # 표 칸 안 | ·줄바꿈이 표를 깨지 않게
+    return " ".join(str(text).split()).replace("|", "\\|")
+
+
+def compare(base: Path, pr: Path, stale: bool = False) -> str:
     # 기준선 vs PR 결과 → PR 댓글 마크다운. 나빠진 것 먼저, 나머지는 접음
     bm, brows = load(base)
     pm, prows = load(pr)
@@ -129,7 +143,7 @@ def compare(base: Path, pr: Path, main_commit: str | None = None) -> str:
             c[1] += po[k]
             c[2] += 1
             if bo[k] and not po[k]:
-                worse.append((i, k, p[i][1]["judge"].get("reason", "") if k.startswith("채점:") else ""))
+                worse.append((i, k, _cell(p[i][1]["judge"].get("reason", "")) if k.startswith("채점:") else ""))
             elif po[k] and not bo[k]:
                 better.append((i, k))
 
@@ -138,8 +152,11 @@ def compare(base: Path, pr: Path, main_commit: str | None = None) -> str:
         return f"{sum(c[at] for c in cs)}/{sum(c[2] for c in cs)}"
 
     out = [MARK, "### 🧪 평가 결과 (참고용, 머지 막지 않음)", ""]
-    if main_commit and bm.get("commit") and not main_commit.startswith(bm["commit"]):
-        out += [f"> ⚠ 기준선이 main 최신이 아님(기준선 `{bm['commit']}`, main `{main_commit[:7]}`). 다시 돌리면 정확해짐", ""]
+    if stale:  # CI가 판단: 기준선 커밋 뒤로 main의 평가 대상 파일이 바뀜
+        out += [f"> ⚠ 기준선이 main 최신이 아님(기준선 `{bm.get('commit', '-')}` 뒤로 프롬프트·평가 파일이 바뀜). 기준선 갱신 뒤 다시 돌리면 정확해짐", ""]
+    bs, ps = (bm.get("scenarios") or {}).get("hash"), (pm.get("scenarios") or {}).get("hash")
+    if bs and ps and bs != ps:
+        out += ["> ⚠ 시나리오 파일이 기준선과 다름: 같은 id라도 질문·의도가 바뀐 시나리오는 비교가 안 맞을 수 있음", ""]
     out.append(f"**채점** {total('채점:', 0)} → {total('채점:', 1)} · **규칙** {total('규칙:', 0)} → {total('규칙:', 1)}"
                f" · 나빠짐 {len(worse)} · 나아짐 {len(better)}" + (f" · 비교 못 함 {skipped}" if skipped else ""))
     if worse:
@@ -147,11 +164,10 @@ def compare(base: Path, pr: Path, main_commit: str | None = None) -> str:
         out += [f"| {i} | {k} | {why} |" for i, k, why in worse]
     rates = ["| 항목 | 기준선 | 이 PR | 차이 |", "|---|---|---|---|"]
     rates += [f"| {k} | {c[0]}/{c[2]} | {c[1]}/{c[2]} | {c[1] - c[0]:+d} |" for k, c in sorted(count.items())]
-    diff = sorted(k for k in _flat(bm).keys() | _flat(pm).keys()
-                  if k.split(".")[0] not in ("time", "prices", "source") and _flat(bm).get(k) != _flat(pm).get(k))
     info = [f"- 평가 커밋 `{pm.get('commit', '-')}`, 기준선 커밋 `{bm.get('commit', '-')}`",
             f"- 기준선 다시 채점: {'함(' + bm['source'] + ')' if 'source' in bm else '안 함'}",
-            f"- 기준선과 다른 칸: {', '.join(diff) or '없음'}"]
+            f"- 기준선 규칙 다시 적용: {'함' if 'rechecked' in bm else '안 함'}",
+            f"- 기준선과 다른 칸: {', '.join(_diff(bm, pm)) or '없음'}"]
     out += ["", "<details><summary>항목별 통과율</summary>", "", *rates, "", "</details>",
             "<details><summary>나아진 시나리오</summary>", "", *([f"- {i} {k}" for i, k in better] or ["- 없음"]), "", "</details>",
             "<details><summary>단계별 비용·캐시</summary>", "", cache_table(pm, prows), "", "</details>",
@@ -167,6 +183,8 @@ if __name__ == "__main__":
     ap.add_argument("--compare", action="store_true", help="paths = 기준선 PR결과 → 비교 마크다운")
     a = ap.parse_args()
     if a.compare:
+        if len(a.paths) != 2:
+            ap.error("--compare는 파일 두 개: 기준선 결과")
         print(compare(*a.paths))
     elif a.cache:
         for p in a.paths:

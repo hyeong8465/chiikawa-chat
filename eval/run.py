@@ -20,7 +20,7 @@ from app.llm import Usage
 from app.prompt import build_messages
 from eval import judge, pricing
 from eval.checks import check
-from eval.report import _flat, load
+from eval.report import _diff, load
 
 ROOT = Path(__file__).parent
 SCENARIOS = ROOT / "scenarios.yaml"
@@ -28,7 +28,6 @@ RESULTS = ROOT / "results"
 NO_FORMAT = ("format", "length")  # safety: 위기 대응은 지문 없이 길게 말해도 됨
 SIM_MODEL = MODELS["haiku"]
 CHAR_FILES = ("platform.md", "character.md", "chat_guide.md", "examples.md", "intro.md", "episodes.yaml")
-META_IGNORE = ("time", "commit", "dirty", "prices")  # 이어 돌릴 때 비교에서 뺌(커밋만 해도 바뀜. 내용 변경은 해시가 잡음)
 
 
 def _hash(text: str) -> str:
@@ -116,6 +115,8 @@ def run_one(s: dict, model: str) -> dict:
             history.append({"role": "user", "content": user})
             t0 = time.perf_counter()
             resp = _reply(history, model, parts["chat"])
+        except (openai.AuthenticationError, openai.PermissionDeniedError, openai.NotFoundError):
+            raise  # 키·권한·모델 이름 오류: 모든 시나리오가 똑같이 실패 → 전체 중단
         except (llm.StreamError, openai.APIError) as e:
             # 잘림·빈 답·시간 초과·5xx 연속: 이 시나리오만 멈춤(전체가 죽으면 결과 파일이 비고 크레딧만 씀). 크레딧 소진은 전체 중단
             error = f"{type(e).__name__}: {e}"
@@ -140,11 +141,6 @@ def run_one(s: dict, model: str) -> dict:
     if error:
         row["error"] = error  # 생성 오류(채점 오류와 구분)
     return row
-
-
-def _diff(a: dict, b: dict) -> list[str]:
-    fa, fb = _flat({k: v for k, v in a.items() if k not in META_IGNORE}), _flat({k: v for k, v in b.items() if k not in META_IGNORE})
-    return sorted(k for k in fa.keys() | fb.keys() if fa.get(k) != fb.get(k))
 
 
 def _ok(row: dict) -> bool:
@@ -182,6 +178,7 @@ def run(label: str, model: str, scenario_ids: list[str] | None = None, resume: b
     if skip:
         print(f"이어 돌리기: 끝난 {len(skip)}개 건너뜀, {len(todo)}개 실행")
     cost = 0.0
+    oks = sum(map(_ok, done))
 
     def one(s: dict) -> dict:
         with llm.tagging(*eval_tags(label)):  # 스레드마다 따로
@@ -198,6 +195,7 @@ def run(label: str, model: str, scenario_ids: list[str] | None = None, resume: b
             try:
                 for row in chain([first], (fu.result() for fu in as_completed(futures))):
                     _write(f, row)
+                    oks += _ok(row)
                     cost += row["usage"]["cost"] + row["usage_parts"]["judge"]["cost"]
                     print(f"{row['id']} 비용 {row['usage']['cost']:.4f}")
             except BaseException:  # 크레딧 소진 등: 안 시작한 건 취소, 이미 돌던 건 끝나는 대로 씀(크레딧 쓴 결과)
@@ -207,9 +205,24 @@ def run(label: str, model: str, scenario_ids: list[str] | None = None, resume: b
                     if not fu.exception():
                         _write(f, fu.result())
                 raise
+    if not oks:  # 하나도 못 끝냄: 정상 결과처럼 저장·비교되지 않게 실패로
+        raise SystemExit(f"{path.name}: 시나리오 전부 오류. 키·모델·크레딧 확인")
     j = judge.USAGE
     print(f"총 비용 ${cost:.4f}(채점자 ${j['cost']:.4f}, 캐시 읽기 {j['cache_read_tokens']}/{j['input_tokens']}토큰) -> {path}")
     return path
+
+
+def recheck(path: Path) -> Path:
+    # 기준선 답에 지금 규칙 검사를 다시 적용(크레딧 안 듦). 규칙이 바뀐 PR과 같은 자로 비교하려고
+    cat = {s["id"]: s["category"] for s in yaml.safe_load(SCENARIOS.read_text(encoding="utf-8"))}
+    meta, rows = load(path)
+    meta = (meta or {}) | {"checks": _file_hash(ROOT / "checks.py"), "rechecked": (meta or {}).get("checks")}
+    for r in rows:
+        r["checks"] = [{k: v for k, v in check(a).items() if not (cat.get(r["id"]) == "safety" and k in NO_FORMAT)}
+                       for a in r.get("responses", [])]
+    out = path.with_name(f"{path.stem}.recheck.jsonl")
+    out.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in [{"meta": meta}, *rows]), encoding="utf-8")
+    return out
 
 
 def _rejudge_path(path: Path) -> Path:

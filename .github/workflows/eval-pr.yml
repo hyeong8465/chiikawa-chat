@@ -1,8 +1,10 @@
 # PR 평가: 프롬프트·평가 코드가 바뀐 PR에서 자동. 기준선(eval-baseline 브랜치)과 비교해 댓글 하나를 고쳐 씀. 머지 안 막음
+# 크레딧 절약: 초안(draft) PR은 안 돎("Ready for review" 때 돎), 평가 대상 파일이 지난 성공 평가와 같으면 건너뜀
 name: eval-pr
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "character/**"
       - "app/prompts/**"
@@ -20,8 +22,34 @@ permissions:
   contents: read
   pull-requests: write
 
+env:
+  EVAL_PATHS: character app/prompts app/prompt.py app/config.py app/llm.py eval .github/workflows/eval-pr.yml .github/workflows/eval-baseline.yml  # 위 paths와 같게
+
 jobs:
+  gate:  # 돌릴지 판단만(크레딧 안 씀)
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.g.outputs.run }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR: ${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@v4  # main에 PR을 합친 상태 → main 쪽 평가 대상 파일 변화도 해시에 들어감
+      - id: g
+        run: |
+          tree=$(git ls-files -s $EVAL_PATHS | sha1sum | cut -c1-12)
+          last=$(gh api "repos/${{ github.repository }}/issues/$PR/comments" --paginate \
+            --jq '.[] | select(.body | startswith("<!-- eval-report -->")) | .body' | grep -o 'eval-tree: [0-9a-f]*' | head -1 || true)
+          if [ "$last" = "eval-tree: $tree" ]; then
+            echo "평가 대상 파일이 지난 성공 평가와 같음 → 건너뜀"; echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   eval:
+    needs: gate
+    if: ${{ needs.gate.outputs.run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -35,6 +63,8 @@ jobs:
     steps:
       # 기본 체크아웃 = main에 이 PR을 합친 상태(refs/pull/N/merge)
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 기준선 커밋과 main 비교(묵었나)
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --frozen
 
@@ -49,11 +79,21 @@ jobs:
 
       - name: 댓글 본문
         run: |
-          main=$(git ls-remote origin refs/heads/main | cut -f1)
-          base=()
-          [ -s "$RUNNER_TEMP/baseline-sonnet.jsonl" ] && base=(--baseline "$RUNNER_TEMP/baseline-sonnet.jsonl")
-          uv run python -m eval.ci pr "${base[@]}" --result "eval/results/$LABEL-sonnet.jsonl" \
-            --main-commit "$main" --out "$RUNNER_TEMP/body.md"
+          git fetch -q origin main
+          f="$RUNNER_TEMP/baseline-sonnet.jsonl"
+          base=(); stale=()
+          if [ -s "$f" ]; then
+            base=(--baseline "$f")
+            # 묵음 = 기준선 커밋 뒤로 main의 평가 대상 파일이 바뀜(무관한 커밋은 경고 안 함)
+            bc=$(head -1 "$f" | python3 -c 'import json,sys; print(json.load(sys.stdin)["meta"].get("commit", ""))')
+            if ! git cat-file -e "$bc^{commit}" 2>/dev/null || ! git diff --quiet "$bc" origin/main -- $EVAL_PATHS; then
+              stale=(--stale)
+            fi
+          fi
+          uv run python -m eval.ci pr "${base[@]}" "${stale[@]}" --result "eval/results/$LABEL-sonnet.jsonl" \
+            --out "$RUNNER_TEMP/body.md"
+          # 성공 댓글에만 평가 대상 파일 해시를 남김 → 다음 푸시에 같으면 gate가 건너뜀
+          echo "<!-- eval-tree: $(git ls-files -s $EVAL_PATHS | sha1sum | cut -c1-12) -->" >> "$RUNNER_TEMP/body.md"
 
       - name: 실패 본문
         if: failure()

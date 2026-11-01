@@ -92,8 +92,9 @@ def test_compare_uncomparable(tmp_path):
 def test_compare_stale_warning(tmp_path):
     base = write(tmp_path / "b.jsonl", [sc("a")], meta={"commit": "aaaaaaa"})
     pr = write(tmp_path / "p.jsonl", [sc("a")], meta={"commit": "bbbbbbb"})
-    assert "최신이 아님" in compare(base, pr, main_commit="ccccccc1234")
-    assert "최신이 아님" not in compare(base, pr, main_commit="aaaaaaa1234")
+    # 묵었는지는 CI가 git으로 판단(평가 대상 파일이 바뀌었나)해서 넘김. 커밋만 다른 건 경고 안 함
+    assert "최신이 아님" in compare(base, pr, stale=True)
+    assert "최신이 아님" not in compare(base, pr)
 
 
 def test_compare_rule_all_turns(tmp_path):
@@ -101,3 +102,22 @@ def test_compare_rule_all_turns(tmp_path):
     base = write(tmp_path / "b.jsonl", [sc("a", checks=[{"length": True}, {"length": True}])], meta={})
     pr = write(tmp_path / "p.jsonl", [sc("a", checks=[{"length": True}, {"length": False}])], meta={})
     assert "| a | 규칙:length |  |" in compare(base, pr)
+
+
+def test_compare_escapes_reason(tmp_path):
+    base = write(tmp_path / "b.jsonl", [sc("a", {"canon_safe": True})], meta={})
+    pr = write(tmp_path / "p.jsonl", [sc("a", {"canon_safe": False, "reason": "A | B\n둘째 줄"})], meta={})
+    assert "| a | 채점:canon_safe | A \\| B 둘째 줄 |" in compare(base, pr)
+
+
+def test_compare_meta_diff_ignores_commit(tmp_path):
+    base = write(tmp_path / "b.jsonl", [sc("a")], meta={"commit": "c1", "dirty": False, "prompts": {"character": "x"}})
+    pr = write(tmp_path / "p.jsonl", [sc("a")], meta={"commit": "c2", "dirty": True, "prompts": {"character": "y"}})
+    t = compare(base, pr)
+    assert "기준선과 다른 칸: prompts.character" in t
+
+
+def test_compare_scenarios_changed_warning(tmp_path):
+    base = write(tmp_path / "b.jsonl", [sc("a")], meta={"scenarios": {"hash": "s1"}})
+    pr = write(tmp_path / "p.jsonl", [sc("a")], meta={"scenarios": {"hash": "s2"}})
+    assert "시나리오 파일이 기준선과 다름" in compare(base, pr)

@@ -1,4 +1,5 @@
 # 기준선 갱신: 프롬프트·평가 코드가 바뀐 채 main에 머지되면 평가 → eval-baseline 브랜치에 저장(main 이력엔 안 남김)
+# 머지 후 확인: 저장 전 직전 기준선과 비교해 머지된 PR에 댓글(추가 크레딧 없음, 채점자 바뀌었으면 다시 채점만)
 name: eval-baseline
 
 on:
@@ -20,6 +21,7 @@ concurrency:  # 한 번에 하나. 대기 중엔 가장 최신만 남음 → 옛
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   baseline:
@@ -30,18 +32,37 @@ jobs:
       LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
       LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
       LANGFUSE_BASE_URL: ${{ secrets.LANGFUSE_BASE_URL }}
+      GH_TOKEN: ${{ github.token }}
+      EVAL_PATHS: character app/prompts app/prompt.py app/config.py app/llm.py eval .github/workflows/eval-pr.yml .github/workflows/eval-baseline.yml  # 위 paths와 같게
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --frozen
 
       - name: 평가
         run: uv run python -m eval.run --label baseline --model sonnet --exclude-category long
 
-      - name: 저장(평가한 커밋이 아직 main 최신일 때만)
+      - name: 머지 후 확인(머지된 PR에 직전 기준선과 비교 댓글)
+        continue-on-error: true  # 댓글 실패해도 기준선 저장은 함
         run: |
-          head=$(git ls-remote origin refs/heads/main | cut -f1)
-          if [ "$head" != "$GITHUB_SHA" ]; then echo "main이 그새 바뀜: 저장 안 함(다음 실행이 저장)"; exit 0; fi
+          pr=$(gh api "repos/${{ github.repository }}/commits/$GITHUB_SHA/pulls" --jq '.[0].number // empty')
+          [ -n "$pr" ] || { echo "머지된 PR 없음(직접 푸시·수동 실행)"; exit 0; }
+          git fetch --depth 1 origin eval-baseline && git show FETCH_HEAD:baseline-sonnet.jsonl > "$RUNNER_TEMP/prev.jsonl" \
+            || { echo "직전 기준선 없음"; exit 0; }
+          uv run python -m eval.ci pr --baseline "$RUNNER_TEMP/prev.jsonl" --result eval/results/baseline-sonnet.jsonl \
+            --out "$RUNNER_TEMP/body.md"
+          { echo "#### 머지 후 확인: main \`${GITHUB_SHA::7}\` 실제 결과 vs 직전 기준선"; echo; cat "$RUNNER_TEMP/body.md"; } \
+            | gh pr comment "$pr" --body-file -
+
+      - name: 저장(그사이 main의 평가 대상 파일이 안 바뀌었을 때만)
+        run: |
+          git fetch -q origin main
+          # 평가 대상 파일이 바뀌었으면 그 push가 이 워크플로를 또 띄움(대기열) → 그쪽이 저장. 문서만 바뀐 건 저장
+          if ! git diff --quiet "$GITHUB_SHA" origin/main -- $EVAL_PATHS; then
+            echo "평가 대상 파일이 그새 바뀜: 저장 안 함(대기 중인 다음 실행이 저장)"; exit 0
+          fi
           cp eval/results/baseline-sonnet.jsonl "$RUNNER_TEMP/"
           if git fetch --depth 1 origin eval-baseline; then
             git checkout -B eval-baseline FETCH_HEAD

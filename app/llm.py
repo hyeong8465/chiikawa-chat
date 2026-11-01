@@ -105,10 +105,6 @@ def tagging(*tags: str):
         _TAGS.reset(token)
 
 
-def current_tags() -> tuple[str, ...]:
-    return _TAGS.get()
-
-
 def _create(kwargs: dict, tags: tuple[str, ...] = ()):
     # 429·5xx·연결 오류는 첫 토큰 전 1회 재시도. 시간 초과는 제외(60초 없던 응답을 또 60초 기다림)
     for attempt in (0, 1):

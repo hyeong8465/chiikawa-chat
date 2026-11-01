@@ -44,3 +44,10 @@ def test_cache_table_no_prices():
     u = {"input_tokens": 10, "cache_read_tokens": 0, "cache_write_tokens": 0, "output_tokens": 0, "cost": 0.5}
     t = cache_table({"gen": {"model": "g"}, "judge": {"model": "j"}}, [{"usage_parts": {"chat": u, "judge": u}}])
     assert "| 생성 | $0.5000 | 10 | 0 | 0 | 0% | - | - |" in t
+
+
+def test_fetch_missing_field_is_none(monkeypatch):
+    # 칸이 빠지면 0으로 두지 않음(절감 부풀림) → 그 모델 단가 없음
+    data = {"data": [{"id": "m", "pricing": {"prompt": "0.000002", "completion": "0.00001"}}]}
+    monkeypatch.setattr(pricing.httpx, "get", lambda *a, **k: httpx.Response(200, json=data, request=httpx.Request("GET", "http://x")))
+    assert pricing.fetch(["m"]) is None
