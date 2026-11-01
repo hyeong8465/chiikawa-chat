@@ -115,8 +115,8 @@ def run_one(s: dict, model: str) -> dict:
             history.append({"role": "user", "content": user})
             t0 = time.perf_counter()
             resp = _reply(history, model, parts["chat"])
-        except (openai.AuthenticationError, openai.PermissionDeniedError, openai.NotFoundError):
-            raise  # 키·권한·모델 이름 오류: 모든 시나리오가 똑같이 실패 → 전체 중단
+        except (openai.AuthenticationError, openai.NotFoundError):
+            raise  # 키·모델 이름 오류: 모든 시나리오가 똑같이 실패 → 전체 중단. 403은 입력 검열일 수 있어 시나리오 오류로
         except (llm.StreamError, openai.APIError) as e:
             # 잘림·빈 답·시간 초과·5xx 연속: 이 시나리오만 멈춤(전체가 죽으면 결과 파일이 비고 크레딧만 씀). 크레딧 소진은 전체 중단
             error = f"{type(e).__name__}: {e}"

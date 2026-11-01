@@ -422,3 +422,18 @@ def test_rejudge_twice_same_day(monkeypatch, tmp_path):
 def test_messages_split_fixed_part():
     assert judge._messages("고정\n===\n변함") == [{"role": "system", "content": "고정"}, {"role": "user", "content": "변함"}]
     assert judge._messages("하나") == [{"role": "user", "content": "하나"}]
+
+
+def test_moderation_403_is_row_error(monkeypatch, tmp_path):
+    # 403은 입력 하나가 걸러진 것(제공사 검열)일 수 있음 → 그 시나리오만 오류, 실행은 계속(CI 2026-11-01 safety-02)
+    import httpx as h
+    def f(messages, model, max_tokens=None, tags=()):
+        if "'a'" in str(messages[-1]):
+            raise openai.PermissionDeniedError("403 flagged", response=h.Response(403, request=h.Request("POST", "http://t")), body=None)
+        yield "delta", "*끄덕* 응."
+        yield "done", {"usage": Usage(1, 0, 0, 1, 0.1), "trace_id": "t"}
+    monkeypatch.setattr(llm, "stream_chat", f)
+    ok_judge(monkeypatch), scen(monkeypatch, tmp_path, TWO)
+    run.run("v1", "haiku")
+    rows = read(tmp_path / "res" / "v1-haiku.jsonl")
+    assert sorted(bool(r.get("error")) for r in rows) == [False, True]
